@@ -29,20 +29,31 @@ public:
 protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float MaxHealth = 100.f;
+	float MaxHealth;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float CurrentHealth;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float MovementSpeed = 600.f;
+	float MoveSpeed;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
-	float AttackDamage = 10.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
-	float AttackRange = 100.0f;
 
 public:
+	// Damage System
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+
+	// Death System
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	virtual void Die();
+
+	// Getters
+	UFUNCTION(BlueprintPure, Category = "Stats")
+	float GetCurrentHealth() const { return CurrentHealth; }
+
+	UFUNCTION(BlueprintPure, Category = "Stats")
+	float GetMaxHealth() const { return MaxHealth; }
+
+	UFUNCTION(BlueprintPure, Category = "Stats")
+	float GetHealthPercentage() const { return CurrentHealth / MaxHealth; }
 
 };
