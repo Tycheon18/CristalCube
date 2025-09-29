@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "NiagaraSystem.h"
 #include "../CristalCubeStruct.h"
 #include "CC_Weapon.generated.h"
 
@@ -29,9 +30,24 @@ protected:
 // WEAPON PROPERTIES
 //==============================================================================
 
-	// Base weapon data
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class UStaticMeshComponent* WeaponMesh;
+
+	// Base weapon stats (damage, attack speed, category)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Stats")
 	FCristalCubeWeaponStats BaseStats;
+
+	// Ranged weapon settings (only used if WeaponCategory == Ranged)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Ranged", meta = (EditCondition = "BaseStats.WeaponCategory == EWeaponCategory::Ranged", EditConditionHides))
+	FCristalCubeRangedStats RangedStats;
+
+	// Melee weapon settings (only used if WeaponCategory == Melee)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Melee", meta = (EditCondition = "BaseStats.WeaponCategory == EWeaponCategory::Melee", EditConditionHides))
+	FCristalCubeMeleeStats MeleeStats;
+
+	// Magic weapon settings (only used if WeaponCategory == Magic)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Magic", meta = (EditCondition = "BaseStats.WeaponCategory == EWeaponCategory::Magic", EditConditionHides))
+	FCristalCubeMagicStats MagicStats;
 
 	// Current state
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon State")
@@ -44,12 +60,21 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon State")
 	AActor* WeaponOwner;
 
+	// Projectile class to spawn (for Ranged weapons)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Ranged", meta = (EditCondition = "BaseStats.WeaponCategory == EWeaponCategory::Ranged", EditConditionHides))
+	TSubclassOf<class ACC_Projectile> ProjectileClass;
+
+	// Enable auto-aim to nearest enemy
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Ranged", meta = (EditCondition = "BaseStats.WeaponCategory == EWeaponCategory::Ranged", EditConditionHides))
+	bool bAutoAim;
+
+	// Auto-aim detection radius
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Ranged", meta = (EditCondition = "BaseStats.WeaponCategory == EWeaponCategory::Ranged && bAutoAim", EditConditionHides))
+	float AutoAimRadius;
+
 	//==============================================================================
 	// VISUAL/AUDIO COMPONENTS
 	//==============================================================================
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	class UStaticMeshComponent* WeaponMesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effects")
 	class UNiagaraSystem* AttackEffect = nullptr;
@@ -68,7 +93,7 @@ public:
 
 	// Check if weapon can attack
 	UFUNCTION(BlueprintPure, Category = "Weapon")
-	virtual bool CanAttack() const;
+	bool CanAttack() const;
 
 	// Weapon equip/unequip
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
@@ -84,11 +109,27 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	float GetAttackSpeed() const { return BaseStats.AttackSpeed; }
 
+	//==========================================================================
+// TYPE-SPECIFIC ATTACK FUNCTIONS
+//==========================================================================
+
+	// Ranged weapon attack
+	void PerformRangedAttack();
+
+	// Melee weapon attack
+	void PerformMeleeAttack();
+
+	// Magic weapon attack
+	void PerformMagicAttack();
+
 
 protected:
 	//==============================================================================
-	// INTERNAL FUNCTIONS
+	// HELPER FUNCTIONS
 	//==============================================================================
+
+	// Attack cooldown timer
+	FTimerHandle AttackCooldownTimer;
 
 	// Reset attack cooldown
 	UFUNCTION()
@@ -99,4 +140,27 @@ protected:
 
 	// Calculate final damage (base damage + owner stats)
 	virtual float CalculateFinalDamage() const;
+
+	// Get number of projectiles to spawn (base + upgrades)
+	int32 GetFinalProjectileCount() const;
+
+	//==========================================================================
+// RANGED HELPER FUNCTIONS
+//==========================================================================
+
+	// Spawn a single projectile
+	void SpawnProjectile(const FVector& SpawnLocation, const FRotator& SpawnRotation);
+
+	// Spawn multiple projectiles with spread
+	void SpawnMultipleProjectiles(const FVector& SpawnLocation, const FRotator& BaseRotation, int32 Count);
+
+	// Get firing direction (auto-aim or forward)
+	FVector GetFiringDirection() const;
+
+	// Find nearest enemy for auto-aim
+	AActor* FindNearestEnemy() const;
+
+	// Calculate spread rotations
+	TArray<FRotator> CalculateSpreadRotations(const FRotator& BaseRotation, int32 Count, float Spread) const;
+
 };

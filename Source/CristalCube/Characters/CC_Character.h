@@ -46,6 +46,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Character")
 	virtual void Die();
 
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	float Heal(float HealAmount);
+
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	bool IsAlive() const { return CurrentHealth > 0.0f; }
+
 	// Getters
 	UFUNCTION(BlueprintPure, Category = "Stats")
 	float GetCurrentHealth() const { return CurrentHealth; }
@@ -54,6 +60,9 @@ public:
 	float GetMaxHealth() const { return MaxHealth; }
 
 	UFUNCTION(BlueprintPure, Category = "Stats")
-	float GetHealthPercentage() const { return CurrentHealth / MaxHealth; }
+	float GetHealthPercentage() const { return MaxHealth > 0.0f ? (CurrentHealth / MaxHealth) : 0.0f; }
 
+protected:
+
+	virtual void ApplyStats();
 };

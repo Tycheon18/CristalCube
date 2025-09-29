@@ -23,8 +23,19 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	virtual void Tick(float DeltaTime) override;
+
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+protected:
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	class USpringArmComponent* CameraBoom;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	class UCameraComponent* FollowCamera;
+
 
 protected:
 	//==============================================================================
@@ -42,16 +53,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputMappingContext* DefaultMappingContext;
 
-	//==============================================================================
-	// WEAPON SYSTEM
-	//==============================================================================
-
-	// Current equipped weapons
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	class ACC_Weapon* PrimaryWeapon;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	class ACC_Weapon* SecondaryWeapon;
 
 	//==============================================================================
 	// ATTACK FUNCTIONS
@@ -67,16 +68,62 @@ protected:
 
 	// Player's stats
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	FCristalCubeCharacterStats PlayerStats;
+	FCristalCubePlayerStats PlayerStats;
 
 	// Apply stats to character (called when stats change)
 	UFUNCTION(BlueprintCallable, Category = "Stats")
-	void ApplyStats();
+	void ApplyPlayerStats();
+
+	// Getters
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	FCristalCubePlayerStats GetPlayerStats() const { return PlayerStats; }
+
+	UFUNCTION(BlueprintPure, Category = "Stats")
+	float GetFinalDamageMultiplier() const { return PlayerStats.BasicStats.DamageMultiplier; }
+
+	UFUNCTION(BlueprintPure, Category = "Stats")
+	float GetFinalAttackSpeedMultiplier() const { return PlayerStats.BasicStats.AttackSpeedMultiplier; }
 
 	//==============================================================================
-	// LEVELING SYSTEM
-	//==============================================================================
+// WEAPON SYSTEM
+//==============================================================================
 
+// Current equipped weapons
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	class ACC_Weapon* PrimaryWeapon;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	ACC_Weapon* SecondaryWeapon;
+
+	// Current active weapon
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	ACC_Weapon* CurrentWeapon;
+
+public:
+
+	// Weapon Management
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void EquipWeapon(ACC_Weapon* NewWeapon, bool bIsPrimary = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void SwitchWeapon();
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void PerformAttack();
+
+	// Getters
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	ACC_Weapon* GetCurrentWeapon() const { return CurrentWeapon; }
+
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	bool HasWeapon() const { return CurrentWeapon != nullptr; }
+
+protected:
+
+	//==============================================================================
+	// LEVEL & EXPERIENCE SYSTEM
+	//==============================================================================
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
 	int32 Level;
 
@@ -88,6 +135,7 @@ protected:
 
 	void LevelUp();
 
+
 public:
 	//==============================================================================
 	// PUBLIC FUNCTIONS
@@ -97,14 +145,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Level")
 	void AddExperience(float ExpAmount);
 
-	// Getters
-	UFUNCTION(BlueprintCallable, Category = "Stats")
-	FCristalCubeCharacterStats GetPlayerStats() const { return PlayerStats; }
-
 	UFUNCTION(BlueprintCallable, Category = "Level")
 	int32 GetPlayerLevel() const { return Level; }
 
 	UFUNCTION(BlueprintCallable, Category = "Level")
 	float GetExperience() const { return Experience; }
 
+	UFUNCTION(BlueprintPure, Category = "Level")
+	float GetExperiencePercentage() const;
+
+	//==============================================================================
+	// OVERRIDE FROM BASE CHARACTER
+	//==============================================================================
+
+protected:
+	// Override ApplyStats to include player-specific stat calculations
+
+	virtual void ApplyStats() override;
 };

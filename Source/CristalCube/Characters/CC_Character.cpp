@@ -88,3 +88,36 @@ void ACC_Character::Die()
 		}, 0.5f, false);
 }
 
+float ACC_Character::Heal(float HealAmount)
+{
+	// Input validation
+	if (HealAmount < 0.0f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Negative heal amount rejected: %.1f"), HealAmount);
+		return 0.0f;
+	}
+
+	// Can't heal the dead
+	if (!IsAlive())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot heal dead character: %s"), *GetName());
+		return 0.0f;
+	}
+
+	// Calculate actual heal amount (prevent overheal)
+	float ActualHealAmount = FMath::Min(HealAmount, MaxHealth - CurrentHealth);
+
+	if (ActualHealAmount > 0.0f)
+	{
+		CurrentHealth += ActualHealAmount;
+		UE_LOG(LogTemp, Log, TEXT("%s healed for %.1f (%.1f/%.1f)"),
+			*GetName(), ActualHealAmount, CurrentHealth, MaxHealth);
+	}
+
+	return ActualHealAmount;
+}
+
+void ACC_Character::ApplyStats()
+{
+}
+

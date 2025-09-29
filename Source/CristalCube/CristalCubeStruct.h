@@ -89,6 +89,16 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Basic")
     float AttackSpeed;
+
+    FCristalCubeWeaponStats()
+        : WeaponCategory(EWeaponCategory::None)
+        , BaseDamage(10.0f)
+        , AttackSpeed(1.0f)
+    {
+        // Default weapon stats
+        // - BaseDamage: 10 damage per hit
+        // - AttackSpeed: 1 attack per second
+    }
 };
 
 // Melee Weapon Specific Stats
@@ -164,102 +174,145 @@ public:
 // CHARACTER STATS SYSTEM
 //==============================================================================
 
-// Common Stats that affect multiple weapon types
-USTRUCT(BlueprintType)
-struct CRISTALCUBE_API FCristalCubeCommonStats
-{
-    GENERATED_BODY()
-
-public:
-    //FCristalCubeCommonStats();
-
-    // Week 3-4 MVP: 정말 필요한 것만
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Common|Essential")
-    float DamageMultiplier;         // 데미지 배율 (1.0 = 기본, 1.2 = 20% 증가)
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Common|Essential")
-    float AttackSpeedMultiplier;    // 공격속도 배율 (1.0 = 기본, 1.5 = 50% 빠름)
-
-    // Week 5+ 확장용 (틀만 준비)
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Common|Future")
-    float CriticalChance;           // 나중에 사용
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Common|Future")
-    int32 ProjectileBonus;          // 나중에 사용
-};
-
-// Basic Character Stats (non-weapon related)
+// Basic Stats - Essential for Week 3-4 MVP
 USTRUCT(BlueprintType)
 struct CRISTALCUBE_API FCristalCubeBasicStats
 {
     GENERATED_BODY()
 
-public:
-    //FCristalCubeBasicStats();
-    
-    // Week 3-4 MVP: 생존에 필수적인 것만
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Basic|Essential")
-    float MoveSpeedMultiplier;      // 이동속도 배율 (1.0 = 기본)
+    // Essential stats for MVP (Week 3-4)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Essential")
+    float DamageMultiplier;          // 1.0 = base, 1.2 = +20% damage
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Basic|Essential")
-    float HealthMultiplier;         // 체력 배율 (1.0 = 기본)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Essential")
+    float AttackSpeedMultiplier;     // 1.0 = base, 1.5 = +50% attack speed
 
-    // Week 5+ 확장용 (틀만 준비)
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Basic|Future")
-    float HealthRegeneration;       // 나중에 사용
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Essential")
+    float MoveSpeedMultiplier;       // 1.0 = base, 1.3 = +30% move speed
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Basic|Future")
-    float PickupRange;              // 나중에 사용
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Essential")
+    float HealthMultiplier;          // 1.0 = base, 1.5 = +50% health
+
+    FCristalCubeBasicStats()
+        : DamageMultiplier(1.0f)
+        , AttackSpeedMultiplier(1.0f)
+        , MoveSpeedMultiplier(1.0f)
+        , HealthMultiplier(1.0f)
+    {
+    }
 };
 
-// Weapon Proficiency Stats (확장용 틀만 준비)
+// Advanced Stats - For future expansion (Week 5+)
 USTRUCT(BlueprintType)
-struct CRISTALCUBE_API FCristalCubeWeaponProficiency
+struct CRISTALCUBE_API FCristalCubeAdvancedStats
 {
     GENERATED_BODY()
 
-public:
-    //FCristalCubeWeaponProficiency();
+    // Advanced combat mechanics (not used in MVP)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float CriticalChance;            // Critical hit chance (0.0~1.0)
 
-    // Week 7-8+ 확장용: 무기별 전문성 (지금은 사용하지 않음)
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Proficiency|Future")
-    float MeleeRangeBonus;          // 나중에 사용
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float CriticalDamageMultiplier;  // Critical damage multiplier
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Proficiency|Future")
-    float ProjectileSpeedBonus;     // 나중에 사용
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float AreaOfEffectMultiplier;    // AoE size multiplier
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Proficiency|Future")
-    float CastTimeReduction;        // 나중에 사용
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    int32 ProjectileCountBonus;      // Extra projectiles
+
+    FCristalCubeAdvancedStats()
+        : CriticalChance(0.0f)
+        , CriticalDamageMultiplier(1.5f)
+        , AreaOfEffectMultiplier(1.0f)
+        , ProjectileCountBonus(0)
+    {
+    }
 };
 
-// Master Character Stats Container
+// Defense Stats - For future expansion (Week 5+)
 USTRUCT(BlueprintType)
-struct CRISTALCUBE_API FCristalCubeCharacterStats
+struct CRISTALCUBE_API FCristalCubeDefenseStats
 {
     GENERATED_BODY()
 
-public:
-    //FCristalCubeCharacterStats();
+    // Defensive mechanics (not used in MVP)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float DamageReduction;           // Damage reduction (0.0~1.0)
 
-    // All stat categories
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float Evasion;                   // Evasion chance (0.0~1.0)
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float HealthRegeneration;        // HP regen per second
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float Shield;                    // Shield amount
+
+    FCristalCubeDefenseStats()
+        : DamageReduction(0.0f)
+        , Evasion(0.0f)
+        , HealthRegeneration(0.0f)
+        , Shield(0.0f)
+    {
+    }
+};
+
+// Utility Stats - For future expansion (Week 5+)
+USTRUCT(BlueprintType)
+struct CRISTALCUBE_API FCristalCubeUtilityStats
+{
+    GENERATED_BODY()
+
+    // Utility mechanics (not used in MVP)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float ExperienceMultiplier;      // XP gain multiplier
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float PickupRange;               // Pickup range multiplier
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float CooldownReduction;         // Cooldown reduction (0.0~1.0)
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Future")
+    float LuckBonus;                 // Luck bonus
+
+    FCristalCubeUtilityStats()
+        : ExperienceMultiplier(1.0f)
+        , PickupRange(1.0f)
+        , CooldownReduction(0.0f)
+        , LuckBonus(0.0f)
+    {
+    }
+};
+
+// Player Stats - Main container combining all stat categories
+USTRUCT(BlueprintType)
+struct CRISTALCUBE_API FCristalCubePlayerStats
+{
+    GENERATED_BODY()
+
+    // Essential stats (Week 3-4)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
     FCristalCubeBasicStats BasicStats;
 
+    // Future expansion stats (Week 5+)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-    FCristalCubeCommonStats CommonStats;
+    FCristalCubeAdvancedStats AdvancedStats;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-    FCristalCubeWeaponProficiency WeaponProficiency;
+    FCristalCubeDefenseStats DefenseStats;
 
-    // Weapon Ownership (어떤 무기를 보유했는지)
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Inventory")
-    bool bHasMeleeWeapon;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+    FCristalCubeUtilityStats UtilityStats;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Inventory")
-    bool bHasRangedWeapon;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Inventory")
-    bool bHasMagicWeapon;
+    FCristalCubePlayerStats()
+        : BasicStats()
+        , AdvancedStats()
+        , DefenseStats()
+        , UtilityStats()
+    {
+    }
 };
 
 //==============================================================================
