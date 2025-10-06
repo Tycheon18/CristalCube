@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "CC_Character.h"
+#include "../CristalCubeStruct.h"
 #include "CC_EnemyCharacter.generated.h"
 
 /**
@@ -20,7 +21,7 @@ public:
 protected:
 
 	virtual void BeginPlay() override;
-
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 public:
 
 	virtual void Tick(float DeltaTime) override;
@@ -114,4 +115,65 @@ protected:
 	// Is this a boss enemy?
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Type")
 	bool bIsBoss;
+
+public:
+
+	//==========================================================================
+// AI Manager Interface
+//==========================================================================
+
+	UFUNCTION(BlueprintPure, Category = "Enemy|AI")
+	float GetDetectionRange() const { return DetectionRange; }
+
+	UFUNCTION(BlueprintCallable, Category = "Enemy|AI")
+	void SetChasePlayer(bool bNewChasePlayer) { bChasePlayer = bNewChasePlayer; }
+
+	UFUNCTION(BlueprintPure, Category = "Enemy|AI")
+	bool GetChasePlayer() const { return bChasePlayer; }
+
+protected:
+
+	// Attack 
+	FCristalCubeEnemyStats EnemyStats;
+
+	// Attack cooldown timer
+	FTimerHandle AttackCooldownTimer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	bool bCanAttack = true;
+
+	void PerformAttack();
+	void StartAttackCooldown();
+	void ResetAttackCooldown();
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void DealDamageToTarget();
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void TryAttack(ACC_PlayerCharacter* Target);
+
+	UFUNCTION(BlueprintPure, Category = "Combat")
+	bool CanAttack() const { return bCanAttack && !bIsAttacking && IsAlive(); }
+
+	UFUNCTION(BlueprintPure, Category = "Combat")
+	float GetAttackCooldownPercent() const;
+
+protected:
+	
+	// Animation instance reference
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	class UAnimMontage* AttackMontage;
+
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Animation")
+	bool bIsAttacking = false;
+
+	void PlayAttackAnimation();
+
+	UFUNCTION()
+	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
 };

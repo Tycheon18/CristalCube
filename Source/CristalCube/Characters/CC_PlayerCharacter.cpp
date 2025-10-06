@@ -8,12 +8,25 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "../CC_LogHelper.h"
+#include "CC_EnemyCharacter.h"
 
 
 ACC_PlayerCharacter::ACC_PlayerCharacter()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
+
+	// Configure character movement
+	GetCharacterMovement()->bOrientRotationToMovement = false; // Character doesn't rotate in direction of movement
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 640.0f, 0.0f);
+	GetCharacterMovement()->bConstrainToPlane = true;
+	GetCharacterMovement()->bSnapToPlaneAtStart = true;
+
 
 	// Initialize player stats (all start at 1.0 = no bonus)
 	PlayerStats = FCristalCubePlayerStats();
@@ -24,6 +37,10 @@ ACC_PlayerCharacter::ACC_PlayerCharacter()
 	CameraBoom->SetRelativeRotation(FRotator(-60.0f, 0.0f, 0.0f));  // Top-down angle
 	CameraBoom->bDoCollisionTest = false;
 
+	CameraBoom->bInheritPitch = false;
+	CameraBoom->bInheritYaw = false;
+	CameraBoom->bInheritRoll = false;
+
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;  // Camera does not rotate relative to arm
@@ -31,28 +48,38 @@ ACC_PlayerCharacter::ACC_PlayerCharacter()
 	// Initialize leveling system
 	Level = 1;
 	Experience = 0.0f;
-	ExperienceToNextLevel = 100.0f;
+	BaseExperienceRequirement = 100.f;
+	ExperienceScaling = 1.15f;
+	ExperienceToNextLevel = BaseExperienceRequirement;
 
 	// Initialize weapon pointers
-	PrimaryWeapon = nullptr;
-	SecondaryWeapon = nullptr;
 	CurrentWeapon = nullptr;
+
+	MaxWeapons = 6;
+	StartingWeaponClass = nullptr;
+
 }
 
 void ACC_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
-	{
-		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
-		{
-			Subsystem->AddMappingContext(DefaultMappingContext, 0);
-		}
-	}
+	CC_LOG_PLAYER(Warning, "PlayerCharacter BeginPlay completed - Input handled by PlayerController");
+	CC_LOG_PLAYER(Warning, "Camera Distance: %.1f, Angle: %.1f",
+		CameraBoom->TargetArmLength,
+		CameraBoom->GetRelativeRotation().Pitch);
 
 	// Apply initial stats
 	ApplyPlayerStats();
+
+	if (StartingWeaponClass)
+	{
+		CreateAndEquipWeapon(StartingWeaponClass);
+	}
+	else
+	{
+		CC_LOG_PLAYER(Warning, "No StartingWeaponClass set");
+	}
 }
 
 void ACC_PlayerCharacter::Tick(float DeltaTime)
@@ -60,75 +87,127 @@ void ACC_PlayerCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 }
 
-void ACC_PlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	// Set up action bindings
-	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
-	{
-		// Primary Attack
-		EnhancedInputComponent->BindAction(PrimaryAttackAction, ETriggerEvent::Triggered, this, &ACC_PlayerCharacter::PrimaryAttack);
-
-		// Secondary Attack  
-		EnhancedInputComponent->BindAction(SecondaryAttackAction, ETriggerEvent::Triggered, this, &ACC_PlayerCharacter::SecondaryAttack);
-	}
-}
-
-void ACC_PlayerCharacter::PrimaryAttack()
-{
-}
-
-void ACC_PlayerCharacter::SecondaryAttack()
-{
-}
-
 void ACC_PlayerCharacter::ApplyPlayerStats()
 {
 	ApplyStats();
 }
 
-void ACC_PlayerCharacter::EquipWeapon(ACC_Weapon* NewWeapon, bool bIsPrimary)
+bool ACC_PlayerCharacter::EquipWeapon(ACC_Weapon* Weapon)
 {
+	// Validation
+	if (!Weapon)
+	{
+		CC_LOG_PLAYER(Warning, "Cannot equip weapon - weapon is null");
+		return false;
+	}
+
+	if (!CanEquipMoreWeapons())
+	{
+		CC_LOG_PLAYER(Warning, "Cannot equip more weapons (Max: %d)", MaxWeapons);
+		return false;
+	}
+
+	if (HasWeapon(Weapon))
+	{
+		CC_LOG_PLAYER(Warning, "Weapon already equipped");
+		return false;
+	}
+
+	// Setup weapon
+	Weapon->OnEquipped(this);
+
+	// Add to equipped weapons list
+	EquippedWeapons.Add(Weapon);
+
+	// Start auto-attack
+	StartWeaponAutoAttack(Weapon);
+
+	CC_LOG_PLAYER(Log, "Equipped weapon (Total: %d/%d)",
+		EquippedWeapons.Num(), MaxWeapons);
+
+	return true;
+}
+
+ACC_Weapon* ACC_PlayerCharacter::CreateAndEquipWeapon(TSubclassOf<ACC_Weapon> WeaponClass)
+{
+	if (!WeaponClass)
+	{
+		CC_LOG_PLAYER(Warning, "Cannot create weapon - invalid class");
+		return nullptr;
+	}
+
+	if (!CanEquipMoreWeapons())
+	{
+		CC_LOG_PLAYER(Warning, "Cannot equip more weapons (Max: %d)", MaxWeapons);
+		return nullptr;
+	}
+
+	// Create weapon
+	ACC_Weapon* NewWeapon = CreateWeapon(WeaponClass);
+
 	if (!NewWeapon)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Trying to equip null weapon"));
+		CC_LOG_PLAYER(Error, "Failed to create weapon!");
+		return nullptr;
+	}
+
+	// Equip it
+	if (EquipWeapon(NewWeapon))
+	{
+		return NewWeapon;
+	}
+	else
+	{
+		// Failed to equip, destroy it
+		NewWeapon->Destroy();
+		return nullptr;
+	}
+}
+
+void ACC_PlayerCharacter::UnequipWeapon(ACC_Weapon* Weapon)
+{
+	if (!Weapon)
+	{
+		CC_LOG_PLAYER(Warning, "Cannot unequip - weapon is null");
 		return;
 	}
 
-	// Determine which slot to use
-	ACC_Weapon** TargetSlot = bIsPrimary ? &PrimaryWeapon : &SecondaryWeapon;
-
-	// Remove old weapon from slot if it exists
-	if (*TargetSlot)
+	if (!HasWeapon(Weapon))
 	{
-		(*TargetSlot)->OnUnequipped();
-		(*TargetSlot)->Destroy();
+		CC_LOG_PLAYER(Warning, "Weapon is not equipped");
+		return;
 	}
 
-	// Equip new weapon
-	*TargetSlot = NewWeapon;
-	NewWeapon->OnEquipped(this);
+	// Stop auto-attack
+	StopWeaponAutoAttack(Weapon);
 
-	// Set as current weapon if no current weapon or if equipping to primary slot
-	if (!CurrentWeapon || bIsPrimary)
+	// Remove from list
+	EquippedWeapons.Remove(Weapon);
+
+	// Cleanup weapon
+	Weapon->OnUnequipped();
+	Weapon->Destroy();
+
+	CC_LOG_PLAYER(Log, "Unequipped weapon (Remaining: %d)", EquippedWeapons.Num());
+
+}
+
+void ACC_PlayerCharacter::UnequipAllWeapons()
+{
+	// Create copy of array to iterate (since we're modifying the original)
+	TArray<ACC_Weapon*> WeaponsCopy = EquippedWeapons;
+
+	for (ACC_Weapon* Weapon : WeaponsCopy)
 	{
-		CurrentWeapon = NewWeapon;
+		UnequipWeapon(Weapon);
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("Equipped weapon to %s slot"), bIsPrimary ? TEXT("Primary") : TEXT("Secondary"));
-
+	CC_LOG_PLAYER(Log, "Unequipped all weapons");
 }
 
 void ACC_PlayerCharacter::SwitchWeapon()
 {
-	// Switch between primary and secondary weapons
-	if (PrimaryWeapon && SecondaryWeapon)
-	{
-		CurrentWeapon = (CurrentWeapon == PrimaryWeapon) ? SecondaryWeapon : PrimaryWeapon;
-		UE_LOG(LogTemp, Log, TEXT("Switched to %s weapon"),
-			(CurrentWeapon == PrimaryWeapon) ? TEXT("Primary") : TEXT("Secondary"));
-	}
+
 }
 
 void ACC_PlayerCharacter::PerformAttack()
@@ -139,13 +218,125 @@ void ACC_PlayerCharacter::PerformAttack()
 	}
 }
 
+ACC_Weapon* ACC_PlayerCharacter::FindWeaponByClass(TSubclassOf<ACC_Weapon> WeaponClass) const
+{
+	if (!WeaponClass)
+	{
+		return nullptr;
+	}
+
+	for (ACC_Weapon* Weapon : EquippedWeapons)
+	{
+		if (Weapon && Weapon->GetClass() == WeaponClass)
+		{
+			return Weapon;
+		}
+	}
+
+	return nullptr;
+}
+
+ACC_Weapon* ACC_PlayerCharacter::CreateWeapon(TSubclassOf<ACC_Weapon> WeaponClass)
+{
+	if (!WeaponClass)
+	{
+		return nullptr;
+	}
+
+	// Spawn parameters
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.Instigator = this;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	// Spawn weapon
+	ACC_Weapon* NewWeapon = GetWorld()->SpawnActor<ACC_Weapon>(
+		WeaponClass,
+		GetActorLocation(),
+		FRotator::ZeroRotator,
+		SpawnParams
+	);
+
+	if (NewWeapon)
+	{
+		CC_LOG_PLAYER(VeryVerbose, "Created weapon from class");
+	}
+	else
+	{
+		CC_LOG_PLAYER(Error, "Failed to spawn weapon!");
+	}
+
+	return NewWeapon;
+}
+
+void ACC_PlayerCharacter::StartWeaponAutoAttack(ACC_Weapon* Weapon)
+{
+	if (!Weapon)
+	{
+		CC_LOG_PLAYER(Warning, "Cannot start auto-attack - weapon is null");
+		return;
+	}
+
+	// Get attack speed
+	float AttackSpeed = Weapon->GetAttackSpeed();
+	if (AttackSpeed <= 0.0f)
+	{
+		CC_LOG_PLAYER(Warning, "Invalid attack speed: %.2f", AttackSpeed);
+		return;
+	}
+
+	// Calculate interval
+	float AttackInterval = 1.0f / AttackSpeed;
+
+	// Create timer handle
+	FTimerHandle AttackTimer;
+
+	// Set up repeating timer
+	GetWorld()->GetTimerManager().SetTimer(
+		AttackTimer,
+		[Weapon]()
+		{
+			if (IsValid(Weapon))
+			{
+				Weapon->Attack();
+			}
+		},
+		AttackInterval,
+		true  // Repeating
+	);
+
+	// Store timer handle
+	WeaponAttackTimers.Add(Weapon, AttackTimer);
+
+	CC_LOG_PLAYER(Log, "Started auto-attack (Interval: %.2fs, Rate: %.1f/s)",
+		AttackInterval, AttackSpeed);
+}
+
+void ACC_PlayerCharacter::StopWeaponAutoAttack(ACC_Weapon* Weapon)
+{
+	if (!Weapon)
+	{
+		return;
+	}
+
+	// Find and clear timer
+	FTimerHandle* TimerHandle = WeaponAttackTimers.Find(Weapon);
+	if (TimerHandle && TimerHandle->IsValid())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(*TimerHandle);
+		WeaponAttackTimers.Remove(Weapon);
+
+		CC_LOG_PLAYER(VeryVerbose, "Stopped auto-attack for weapon");
+	}
+}
+
 void ACC_PlayerCharacter::LevelUp()
 {
 	Level++;
 	Experience -= ExperienceToNextLevel;
 
 	// Increase XP requirement for next level (simple scaling / Request to change to refined variables in the future)
-	ExperienceToNextLevel *= 1.2f;
+	ExperienceToNextLevel *= ExperienceScaling;
 
 	// Heal to full on level up
 	Heal(MaxHealth);

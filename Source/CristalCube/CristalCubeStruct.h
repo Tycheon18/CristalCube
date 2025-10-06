@@ -315,6 +315,32 @@ struct CRISTALCUBE_API FCristalCubePlayerStats
     }
 };
 
+USTRUCT(BlueprintType)
+struct CRISTALCUBE_API FCristalCubeEnemyStats
+{
+    GENERATED_BODY()
+
+	// Enemy stats (simplified for MVP)
+
+public:
+
+    UPROPERTY(EditAnywhere, BlueprintREadWrite, Category = "Stats")
+    float AttackDamage;
+
+	UPROPERTY(EditAnywhere, BlueprintREadWrite, Category = "Stats")
+    float AttackCooldown;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
+    float AttackRange; 
+
+    FCristalCubeEnemyStats()
+    {
+        AttackDamage = 10.0f;
+        AttackCooldown = 1.0f;
+        AttackRange = 150.0f;
+    }
+};
+
 //==============================================================================
 // CRYSTAL COLLECTION SYSTEM
 //==============================================================================

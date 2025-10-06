@@ -25,9 +25,6 @@ protected:
 
 	virtual void Tick(float DeltaTime) override;
 
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
 protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -38,29 +35,6 @@ protected:
 
 
 protected:
-	//==============================================================================
-	// INPUT SYSTEM
-	//==============================================================================
-
-	// Enhanced Input Actions
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	class UInputAction* PrimaryAttackAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	class UInputAction* SecondaryAttackAction;
-
-	// Input Mapping Context
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	class UInputMappingContext* DefaultMappingContext;
-
-
-	//==============================================================================
-	// ATTACK FUNCTIONS
-	//==============================================================================
-
-	// Called for attack input
-	void PrimaryAttack();
-	void SecondaryAttack();
 
 	//==============================================================================
 	// CHARACTER STATS SYSTEM
@@ -89,21 +63,40 @@ protected:
 //==============================================================================
 
 // Current equipped weapons
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	class ACC_Weapon* PrimaryWeapon;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	ACC_Weapon* SecondaryWeapon;
 
 	// Current active weapon
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	ACC_Weapon* CurrentWeapon;
+	class ACC_Weapon* CurrentWeapon;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Weapons")
+	TArray<ACC_Weapon*> EquippedWeapons;
+
+	/** Starting weapon class (equipped on BeginPlay) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player|Weapons")
+	TSubclassOf<ACC_Weapon> StartingWeaponClass;
+
+	/** Maximum number of weapons player can equip */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player|Weapons")
+	int32 MaxWeapons;
+
+	UPROPERTY()
+	TMap<ACC_Weapon*, FTimerHandle> WeaponAttackTimers;
 
 public:
 
 	// Weapon Management
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	void EquipWeapon(ACC_Weapon* NewWeapon, bool bIsPrimary = true);
+	bool EquipWeapon(ACC_Weapon* Weapon);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	ACC_Weapon* CreateAndEquipWeapon(TSubclassOf<ACC_Weapon> WeaponClass);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void UnequipWeapon(ACC_Weapon* Weapon);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void UnequipAllWeapons();
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	void SwitchWeapon();
@@ -115,8 +108,33 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	ACC_Weapon* GetCurrentWeapon() const { return CurrentWeapon; }
 
-	UFUNCTION(BlueprintPure, Category = "Weapon")
-	bool HasWeapon() const { return CurrentWeapon != nullptr; }
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	ACC_Weapon* FindWeaponByClass(TSubclassOf<ACC_Weapon> WeaponClass) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	ACC_Weapon* CreateWeapon(TSubclassOf<ACC_Weapon> WeaponClass);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void StartWeaponAutoAttack(ACC_Weapon* Weapon);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void StopWeaponAutoAttack(ACC_Weapon* Weapon);
+
+	/** Get all equipped weapons */
+	UFUNCTION(BlueprintPure, Category = "Player|Weapons")
+	TArray<ACC_Weapon*> GetEquippedWeapons() const { return EquippedWeapons; }
+
+	/** Check if can equip more weapons */
+	UFUNCTION(BlueprintPure, Category = "Player|Weapons")
+	bool CanEquipMoreWeapons() const { return EquippedWeapons.Num() < MaxWeapons; }
+
+	/** Get weapon count */
+	UFUNCTION(BlueprintPure, Category = "Player|Weapons")
+	int32 GetEquippedWeaponCount() const { return EquippedWeapons.Num(); }
+
+	/** Check if specific weapon is equipped */
+	UFUNCTION(BlueprintPure, Category = "Player|Weapons")
+	bool HasWeapon(ACC_Weapon* Weapon) const { return EquippedWeapons.Contains(Weapon); }
 
 protected:
 
@@ -133,10 +151,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level")
 	float ExperienceToNextLevel;
 
-	void LevelUp();
+	/** Base experience for level 2 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player|Experience")
+	float BaseExperienceRequirement;
 
+	/** Experience scaling per level */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player|Experience")
+	float ExperienceScaling;
 
 public:
+
 	//==============================================================================
 	// PUBLIC FUNCTIONS
 	//==============================================================================
@@ -146,6 +170,9 @@ public:
 	void AddExperience(float ExpAmount);
 
 	UFUNCTION(BlueprintCallable, Category = "Level")
+	void LevelUp();
+
+	UFUNCTION(BlueprintCallable, Category = "Level")
 	int32 GetPlayerLevel() const { return Level; }
 
 	UFUNCTION(BlueprintCallable, Category = "Level")
@@ -153,6 +180,13 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Level")
 	float GetExperiencePercentage() const;
+
+	/** Returns CameraBoom subobject */
+	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+
+	/** Returns FollowCamera subobject */
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+
 
 	//==============================================================================
 	// OVERRIDE FROM BASE CHARACTER

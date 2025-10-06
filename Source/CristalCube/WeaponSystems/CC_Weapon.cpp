@@ -120,8 +120,8 @@ void ACC_Weapon::PerformRangedAttack()
 		return;
 	}
 
-	// Calculate spawn location (50cm in front of owner by default)
-	FVector SpawnOffset = FVector(50.0f, 0.0f, 0.0f);
+	// Calculate spawn location (75cm in front of owner by default)
+	FVector SpawnOffset = FVector(75.0f, 0.0f, 0.0f);
 	FVector SpawnLocation = WeaponOwner->GetActorLocation() +
 		WeaponOwner->GetActorRotation().RotateVector(SpawnOffset);
 
