@@ -32,6 +32,8 @@ protected:
 	UPROPERTY()
 	class ACC_PlayerCharacter* TargetPlayer;
 
+	TArray<AActor*> HitActorsThisAttack;
+
 	// Detection range for finding player
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|AI")
 	float DetectionRange;
@@ -49,9 +51,11 @@ protected:
 
 protected:
 	//==========================================================================
-// COMBAT
-//==========================================================================
+	// COMBAT
+	//==========================================================================
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Combat")
+	FAttackHitData AttackHitData;
 
 	// Contact damage dealt to player on collision
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Combat")
@@ -65,8 +69,14 @@ protected:
 	UPROPERTY()
 	float LastDamageTime;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Combat|Debug")
+	bool bShowAttackDebug = true;
+
 	// Can deal damage right now?
 	bool CanDealDamage() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Enemy|Combat")
+	bool PerformAttackHit(const FAttackHitData& HitData, TArray<AActor*>& OutHitTargets);
 
 	// Deal contact damage to player
 	void DealContactDamage(AActor* OtherActor);
@@ -75,8 +85,8 @@ protected:
 protected:
 	
 	//==========================================================================
-// EXPERIENCE DROP
-//==========================================================================
+	// EXPERIENCE DROP
+	//==========================================================================
 
 
 	// Experience points dropped when killed
@@ -90,8 +100,8 @@ protected:
 protected:
 
 	//==========================================================================
-// COLLISION
-//==========================================================================
+	// COLLISION
+	//==========================================================================
 
 
 	// Called when enemy overlaps with something
@@ -104,8 +114,8 @@ protected:
 protected:
 
 	//==========================================================================
-// ENEMY TYPE (Future expansion)
-//==========================================================================
+	// ENEMY TYPE (Future expansion)
+	//==========================================================================
 
 
 	// Enemy type for future variety
@@ -119,8 +129,8 @@ protected:
 public:
 
 	//==========================================================================
-// AI Manager Interface
-//==========================================================================
+	// AI Manager Interface
+	//==========================================================================
 
 	UFUNCTION(BlueprintPure, Category = "Enemy|AI")
 	float GetDetectionRange() const { return DetectionRange; }
@@ -133,11 +143,20 @@ public:
 
 protected:
 
+	//==========================================================================
 	// Attack 
+	//==========================================================================
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	FCristalCubeEnemyStats EnemyStats;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class USphereComponent* AttackRangeSphere;
 
 	// Attack cooldown timer
 	FTimerHandle AttackCooldownTimer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	bool bPlayerInRange = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	bool bCanAttack = true;
@@ -145,6 +164,15 @@ protected:
 	void PerformAttack();
 	void StartAttackCooldown();
 	void ResetAttackCooldown();
+
+	UFUNCTION()
+	void OnAttackRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+		const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnAttackRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 public:
 
@@ -176,4 +204,8 @@ protected:
 	UFUNCTION()
 	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
+
+	// Debug
+
+	void DrawAttackDebug(const FAttackHitData& HitData, bool bHit);
 };

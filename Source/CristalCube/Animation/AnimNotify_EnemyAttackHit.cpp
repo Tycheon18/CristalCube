@@ -6,6 +6,8 @@
 
 void UAnimNotify_EnemyAttackHit::Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation)
 {
+	UE_LOG(LogTemp, Warning, TEXT("[ANIM NOTIFY] Enemy attack hit notify triggered"));
+
 	if (ACC_EnemyCharacter* EnemyCharacter = Cast<ACC_EnemyCharacter>(MeshComp->GetOwner()))
 	{
 		EnemyCharacter->DealDamageToTarget();

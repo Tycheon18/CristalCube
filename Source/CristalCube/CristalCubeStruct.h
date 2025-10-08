@@ -24,6 +24,20 @@ enum class EUpgradeType : uint8
 
 };
 
+//====================================================================================
+// Attack Hit Types
+//====================================================================================
+
+UENUM(BlueprintType)
+enum class EAttackHitType : uint8
+{
+	Point       UMETA(DisplayName = "Point"),       // one target
+	Sphere      UMETA(DisplayName = "Sphere"),      // circular area 360 degree
+    Line        UMETA(DisplayName = "Line"),        // 
+    Box         UMETA(DisplayName = "Box"),         // square
+    Cone        UMETA(DisplayName = "Cone"),        // 
+    Capsule     UMETA(DisplayName = "Capsule")      // 
+};
 
 // DataTable Row Structure
 USTRUCT(BlueprintType)
@@ -337,7 +351,7 @@ public:
     {
         AttackDamage = 10.0f;
         AttackCooldown = 1.0f;
-        AttackRange = 150.0f;
+        AttackRange = 200.0f;
     }
 };
 
@@ -377,6 +391,65 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collection|Magnetic")
     float MagneticStrength;
+};
+
+//==============================================================================
+// Attack Hit Data
+//==============================================================================
+
+USTRUCT(BlueprintType)
+struct FAttackHitData
+{
+    GENERATED_BODY()
+
+    // 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack")
+    EAttackHitType HitType = EAttackHitType::Line;
+
+    // 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0"))
+    float Range = 200.0f;
+
+    // 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0"))
+    float Width = 100.0f;
+
+    // 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0"))
+    float Height = 25.0f;
+
+    // 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0"))
+    float Thickness = 50.0f;
+
+    // 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0", ClampMax = "360"))
+    float Angle = 90.0f;
+
+    // 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack", meta = (ClampMin = "0"))
+    float Radius = 50.0f;
+
+    //
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack")
+    bool bCheckFrontOnly = false;
+
+    // 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack")
+    bool bPenetrate = false;
+
+    FAttackHitData()
+        : HitType(EAttackHitType::Sphere)
+        , Range(200.0f)
+        , Width(100.0f)
+        , Height(25.0f)
+        , Thickness(50.0f)
+        , Angle(90.0f)
+        , Radius(50.0f)
+        , bCheckFrontOnly(false)
+        , bPenetrate(false)
+    {
+    }
 };
 
 UCLASS()
