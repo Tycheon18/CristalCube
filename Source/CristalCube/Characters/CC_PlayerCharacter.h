@@ -58,12 +58,29 @@ protected:
 	UFUNCTION(BlueprintPure, Category = "Stats")
 	float GetFinalAttackSpeedMultiplier() const { return PlayerStats.BasicStats.AttackSpeedMultiplier; }
 
+protected:
+
 	//==============================================================================
 // WEAPON SYSTEM
 //==============================================================================
 
 // Current equipped weapons
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons|Data")
+	UDataTable* WeaponDataTable;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	class UCC_SearchingComponent* SearchingComponent;
+
+	UPROPERTY()
+	class UCC_WeaponManagerSubsystem* WeaponManager;
+
+	void InitializeWeaponSystem();
+
+	void EquipStartingWeapons();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	int32 StartingWeaponCount = 2;
 
 	// Current active weapon
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
@@ -85,6 +102,9 @@ protected:
 
 public:
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void EquipWeaponByName(FName WeaponRowName);
+
 	// Weapon Management
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool EquipWeapon(ACC_Weapon* Weapon);
@@ -105,6 +125,9 @@ public:
 	void PerformAttack();
 
 	// Getters
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	UCC_SearchingComponent* GetSearchingComponent() const { return SearchingComponent; }
+	
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	ACC_Weapon* GetCurrentWeapon() const { return CurrentWeapon; }
 
@@ -146,10 +169,13 @@ protected:
 	int32 Level;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Level")
-	float Experience;
+	float Experience = 0.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level")
 	float ExperienceToNextLevel;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level")
+	TSubclassOf<UUserWidget> LevelUpWidgetClass;
 
 	/** Base experience for level 2 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player|Experience")
@@ -159,11 +185,50 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player|Experience")
 	float ExperienceScaling;
 
+	//==============================================================================
+	// Tile
+	//==============================================================================
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class UCC_TileTrackerComponent* TileTrackerComponent;
+
+	UFUNCTION()
+	void OnPlayerTileChanged(int32 OldTileIndex, int32 NewTileIndex, FVector NewPosition);
+
+	//==============================================================================
+	// Widgets
+	//==============================================================================
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UCC_GameHUD> GameHUDClass;
+
+	UPROPERTY()
+	UCC_GameHUD* CurrentGameHUD;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<class UCC_LevelUpWidget> LevelUpUIClass;
+
+	UPROPERTY()
+	UCC_LevelUpWidget* CurrentLevelUpUI;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
+	float GameTime = 0.0f;
+
+	void UpdateGameHUD();
+
+
+
+protected:
+
+
+
 public:
 
 	//==============================================================================
 	// PUBLIC FUNCTIONS
 	//==============================================================================
+
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
 	// Add experience (called when enemy dies)
 	UFUNCTION(BlueprintCallable, Category = "Level")
@@ -181,6 +246,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Level")
 	float GetExperiencePercentage() const;
 
+	UFUNCTION(BlueprintCallable)
+	void ShowLevelUpUI();
+
+	UFUNCTION(BlueprintCallable)
+	void HideLevelUpUI();
+
+	UFUNCTION(BlueprintCallable)
+	void OnWeaponSelected(FName WeaponName);
+
+	UFUNCTION(BlueprintCallable)
+	void ApplyWeaponUpgrade(FName WeaponID);
+
 	/** Returns CameraBoom subobject */
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 
@@ -196,4 +273,6 @@ protected:
 	// Override ApplyStats to include player-specific stat calculations
 
 	virtual void ApplyStats() override;
+
+
 };

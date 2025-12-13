@@ -7,6 +7,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "CC_EnemyManager.h"
 
 
 void UCC_AIManager::Initialize(FSubsystemCollectionBase& Collection)
@@ -225,3 +226,4 @@ UCC_AIManager* UCC_AIManager::Get(const UObject* WorldContextObject)
 	}
 	return nullptr;
 }
+

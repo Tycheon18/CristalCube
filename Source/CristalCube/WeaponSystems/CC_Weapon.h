@@ -31,22 +31,22 @@ protected:
 //==============================================================================
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	class UStaticMeshComponent* WeaponMesh;
+	class UStaticMeshComponent* WeaponMesh;	
 
 	// Base weapon stats (damage, attack speed, category)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Stats")
 	FCristalCubeWeaponStats BaseStats;
 
 	// Ranged weapon settings (only used if WeaponCategory == Ranged)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Ranged", meta = (EditCondition = "BaseStats.WeaponCategory == EWeaponCategory::Ranged", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Ranged", meta = (EditCondition))
 	FCristalCubeRangedStats RangedStats;
 
 	// Melee weapon settings (only used if WeaponCategory == Melee)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Melee", meta = (EditCondition = "BaseStats.WeaponCategory == EWeaponCategory::Melee", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Melee", meta = (EditCondition))
 	FCristalCubeMeleeStats MeleeStats;
 
 	// Magic weapon settings (only used if WeaponCategory == Magic)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Magic", meta = (EditCondition = "BaseStats.WeaponCategory == EWeaponCategory::Magic", EditConditionHides))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Magic", meta = (EditCondition))
 	FCristalCubeMagicStats MagicStats;
 
 	// Current state
@@ -154,11 +154,24 @@ protected:
 	// Spawn multiple projectiles with spread
 	void SpawnMultipleProjectiles(const FVector& SpawnLocation, const FRotator& BaseRotation, int32 Count);
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Searching")
+	class UCC_SearchingComponent* GetSearchingComponent() const;
+
 	// Get firing direction (auto-aim or forward)
 	FVector GetFiringDirection() const;
 
 	// Find nearest enemy for auto-aim
-	AActor* FindNearestEnemy() const;
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Targeting")
+	AActor* FindNearestEnemy(float SearchRadius = 0.0f) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Targeting")
+	TArray<AActor*> FindRandomEnemies(float SearchRadius, int32 Count);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Targeting")
+	TArray<AActor*> GetEnemiesInRadius(float Radius);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Targeting")
+	TArray<AActor*> GetEnemiesInCone(FVector Direction, float Range, float Angle);
 
 	// Calculate spread rotations
 	TArray<FRotator> CalculateSpreadRotations(const FRotator& BaseRotation, int32 Count, float Spread) const;

@@ -8,7 +8,14 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "Kismet/GameplayStatics.h"
+#include "Blueprint/UserWidget.h"
 #include "../CC_LogHelper.h"
+#include "../CC_WeaponManagerSubsystem.h"
+#include "../CC_SearchingComponent.h"
+#include "../Widgets/CC_GameHUD.h"
+#include "../Widgets/CC_LevelUpWidget.h"
+#include "../CC_TileTrackerComponent.h"
 #include "CC_EnemyCharacter.h"
 
 
@@ -30,6 +37,10 @@ ACC_PlayerCharacter::ACC_PlayerCharacter()
 
 	// Initialize player stats (all start at 1.0 = no bonus)
 	PlayerStats = FCristalCubePlayerStats();
+
+	SearchingComponent = CreateDefaultSubobject<UCC_SearchingComponent>(TEXT("SearchingComponent"));
+
+	TileTrackerComponent = CreateDefaultSubobject<UCC_TileTrackerComponent>(TEXT("TileTrackerComponent"));
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -79,17 +90,137 @@ void ACC_PlayerCharacter::BeginPlay()
 	else
 	{
 		CC_LOG_PLAYER(Warning, "No StartingWeaponClass set");
+
+		InitializeWeaponSystem();
+		EquipStartingWeapons();
+	}
+
+	if (GameHUDClass)
+	{
+		CurrentGameHUD = CreateWidget<UCC_GameHUD>(GetWorld(), GameHUDClass);
+		if (CurrentGameHUD)
+		{
+			CurrentGameHUD->AddToViewport();
+			UpdateGameHUD();
+			UE_LOG(LogTemp, Log, TEXT("[Player] Game HUD created"));
+		}
+		
+	}
+
+	if (TileTrackerComponent)
+	{
+		TileTrackerComponent->OnCurrentTileChanged.AddDynamic(
+			this,
+			&ACC_PlayerCharacter::OnPlayerTileChanged
+		);
 	}
 }
 
 void ACC_PlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	GameTime += DeltaTime;
+
+	// HUD Update
+	static float HUDUpdateTimer = 0.0f;
+	HUDUpdateTimer += DeltaTime;
+	if (HUDUpdateTimer >= 0.1f)
+	{
+		UpdateGameHUD();
+		HUDUpdateTimer = 0.0f;
+	}
 }
 
 void ACC_PlayerCharacter::ApplyPlayerStats()
 {
 	ApplyStats();
+}
+
+void ACC_PlayerCharacter::InitializeWeaponSystem()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	if(!GameInstance)
+	{
+		CC_LOG_PLAYER(Error, "Cannot initialize Weapon System - GameInstance is null");
+		return;
+	}
+
+	WeaponManager = GameInstance->GetSubsystem<UCC_WeaponManagerSubsystem>();
+
+	if (!WeaponManager)
+	{
+		CC_LOG_PLAYER(Error, "Cannot initialize Weapon System - WeaponManagerSubsystem is null");
+		return;
+	}
+
+	if (WeaponDataTable)
+	{
+		WeaponManager->LoadWeaponDataTable(WeaponDataTable);
+		CC_LOG_PLAYER(Log, "Weapon System Initialized");
+	}
+	else
+	{
+		CC_LOG_PLAYER(Warning, "No WeaponDataTable set - cannot load weapon data");
+	}
+}
+
+void ACC_PlayerCharacter::EquipStartingWeapons()
+{
+	if (!WeaponManager)
+	{
+		CC_LOG_PLAYER(Error, TEXT("WeaponManager Not Initialized!"));
+		return;
+	}
+
+	TArray<FName> StartingWeaponNames = WeaponManager->GetStartingWeaponNames();
+
+	if (StartingWeaponNames.Num() == 0)
+	{
+		CC_LOG_PLAYER(Error, TEXT("No Starting weapons available"));
+		return;
+	}
+
+	TArray<FName> SelectedWeaponNames =
+		WeaponManager->GetRandomWeaponNames(StartingWeaponNames, StartingWeaponCount, false);
+
+	for (FName WeaponName : SelectedWeaponNames)
+	{
+		TSubclassOf<ACC_Weapon> WeaponClass = WeaponManager->GetWeaponClass(WeaponName);
+
+		if (WeaponClass)
+		{
+			CreateAndEquipWeapon(WeaponClass);
+
+			FWeaponData WeaponData;
+			if (WeaponManager->GetWeaponData(WeaponName, WeaponData))
+			{
+				CC_LOG_PLAYER(Log, TEXT("Equipped: %s"), *WeaponData.WeaponName.ToString());
+			}
+		}
+	}
+}
+
+void ACC_PlayerCharacter::EquipWeaponByName(FName WeaponRowName)
+{
+	if (!WeaponManager)
+	{
+		CC_LOG_PLAYER(Error, TEXT("WeaponManager not initialized!"));
+		return;
+	}
+
+	TSubclassOf<ACC_Weapon> WeaponClass = WeaponManager->GetWeaponClass(WeaponRowName);
+
+	if (WeaponClass)
+	{
+		CreateAndEquipWeapon(WeaponClass);
+
+		FWeaponData WeaponData;
+		if (WeaponManager->GetWeaponData(WeaponRowName, WeaponData))
+		{
+			CC_LOG_PLAYER(Log, TEXT("Equipped weapon: %s"), *WeaponData.WeaponName.ToString());
+		}
+	}
 }
 
 bool ACC_PlayerCharacter::EquipWeapon(ACC_Weapon* Weapon)
@@ -342,11 +473,42 @@ void ACC_PlayerCharacter::LevelUp()
 	Heal(MaxHealth);
 
 	UE_LOG(LogTemp, Log, TEXT("Level Up! Now level %d"), Level);
+
+	UpdateGameHUD();
+	ShowLevelUpUI();
+}
+
+void ACC_PlayerCharacter::OnPlayerTileChanged(int32 OldTileIndex, int32 NewTileIndex, FVector NewPosition)
+{
+	UE_LOG(LogTemp, Log, TEXT("[Player] Tile changed: %d -> %d"), OldTileIndex, NewTileIndex);
+}
+
+void ACC_PlayerCharacter::UpdateGameHUD()
+{
+	if (!CurrentGameHUD) return;
+
+	CurrentGameHUD->UpdateHealth(CurrentHealth, MaxHealth);
+	CurrentGameHUD->UpdateExp(Experience, ExperienceToNextLevel, Level);
+	CurrentGameHUD->UpdateTimer(GameTime);
+
+}
+
+float ACC_PlayerCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	CurrentHealth = FMath::Max(0.0f, CurrentHealth - ActualDamage);
+
+	UpdateGameHUD();
+
+	return ActualDamage;
 }
 
 void ACC_PlayerCharacter::AddExperience(float ExpAmount)
 {
 	Experience += ExpAmount;
+
+	UpdateGameHUD();
 
 	// Check for level up
 	while (Experience >= ExperienceToNextLevel)
@@ -362,6 +524,109 @@ float ACC_PlayerCharacter::GetExperiencePercentage() const
 		return 0.0f;
 	}
 	return Experience / ExperienceToNextLevel;
+}
+
+void ACC_PlayerCharacter::ShowLevelUpUI()
+{
+	if (!LevelUpUIClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Player] LevelUpUIClass not set!"));
+		return;
+	}
+
+	if (CurrentLevelUpUI)
+	{
+		return;
+	}
+
+	CurrentLevelUpUI = CreateWidget<UCC_LevelUpWidget>(GetWorld(), LevelUpUIClass);
+
+	if (!CurrentLevelUpUI)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Player] Failed to create LevelUpUI"));
+		return;
+	}
+
+	if(WeaponManager)
+	{
+		TArray<FName> Options = WeaponManager->GetRandomWeaponNames(WeaponManager->GetAllWeaponNames(), 3);
+		CurrentLevelUpUI->SetWeaponChoices(Options);
+
+		CurrentLevelUpUI->OnWeaponSelected.AddDynamic(this, &ACC_PlayerCharacter::OnWeaponSelected);
+	}
+
+	CurrentLevelUpUI->AddToViewport(10);
+
+	UGameplayStatics::SetGamePaused(GetWorld(), true);
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (PC)
+	{
+		PC->bShowMouseCursor = true;
+		PC->SetInputMode(FInputModeUIOnly());
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[Player] Level Up UI shown"));
+	//if (LevelUpWidgetClass)
+	//{
+	//	UUserWidget* Widget = CreateWidget<UUserWidget>(
+	//		GetWorld(),
+	//		LevelUpWidgetClass
+	//	);
+	//	Widget->AddToViewport();
+	//}
+
+}
+
+void ACC_PlayerCharacter::HideLevelUpUI()
+{
+	if (CurrentLevelUpUI)
+	{
+		CurrentLevelUpUI->RemoveFromParent();
+		CurrentLevelUpUI = nullptr;
+	}
+
+	UGameplayStatics::SetGamePaused(GetWorld(), false);
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (PC)
+	{
+		PC->bShowMouseCursor = false;
+		PC->SetInputMode(FInputModeGameOnly());
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[Player] Level Up UI hidden"));
+}
+
+void ACC_PlayerCharacter::OnWeaponSelected(FName WeaponName)
+{
+	UE_LOG(LogTemp, Warning, TEXT("[Player] Weapon Selected: %s"), *WeaponName.ToString());
+
+	if (WeaponManager)
+	{
+		FWeaponData* WeaponData = WeaponManager->GetWeaponDataPtr(WeaponName);
+		if (WeaponData && WeaponData->WeaponClass)
+		{
+			CreateAndEquipWeapon(WeaponData->WeaponClass);
+		}
+	}
+
+	HideLevelUpUI();
+}
+
+void ACC_PlayerCharacter::ApplyWeaponUpgrade(FName WeaponID)
+{
+	UCC_WeaponManagerSubsystem* WeaponMgr = GetGameInstance()
+		->GetSubsystem<UCC_WeaponManagerSubsystem>();
+
+	FWeaponData* Data = WeaponMgr->GetWeaponDataPtr(WeaponID);
+
+	if (Data && Data->WeaponClass)
+	{
+		CreateAndEquipWeapon(Data->WeaponClass);
+	}
+
+	UGameplayStatics::SetGamePaused(GetWorld(), false);
 }
 
 void ACC_PlayerCharacter::ApplyStats()

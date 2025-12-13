@@ -12,8 +12,10 @@
 #include "TimerManager.h"
 #include "CC_PlayerCharacter.h"
 #include "../CC_LogHelper.h"
+#include "../CC_EnemyManager.h"
 #include "../CC_AIManager.h"
 #include "../CC_EnemyAIController.h"
+#include "../Gameplay/CC_ExperienceGem.h"
 
 ACC_EnemyCharacter::ACC_EnemyCharacter()
 {
@@ -134,6 +136,11 @@ void ACC_EnemyCharacter::BeginPlay()
 				*GetName());
 		}
 	}
+
+	if (ACC_EnemyManager* Manager = ACC_EnemyManager::Get(this))
+	{
+		Manager->RegisterEnemy(this);
+	}
 }
 
 void ACC_EnemyCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -142,6 +149,11 @@ void ACC_EnemyCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (UCC_AIManager* AIManager = UCC_AIManager::Get(this))
 	{
 		AIManager->UnregisterEnemy(this);
+	}
+
+	if (ACC_EnemyManager* Manager = ACC_EnemyManager::Get(this))
+	{
+		Manager->UnregisterEnemy(this);
 	}
 
 	Super::EndPlay(EndPlayReason);
@@ -222,189 +234,189 @@ bool ACC_EnemyCharacter::PerformAttackHit(const FAttackHitData& HitData, TArray<
 
 	switch (HitData.HitType)
 	{
-	case EAttackHitType::Point:
-	{
-		// 단일 타겟만
-		if (!TargetPlayer) return false;
-
-		float Distance = FVector::Dist(Start, TargetPlayer->GetActorLocation());
-		if (Distance <= HitData.Range)
+		case EAttackHitType::Point:
 		{
-			OutHitTargets.Add(TargetPlayer);
-		}
-		break;
-	}
+			// 단일 타겟만
+			if (!TargetPlayer) return false;
 
-	case EAttackHitType::Sphere:
-	{
-		// 360도 원형 범위
-		TArray<FOverlapResult> Overlaps;
-		FCollisionQueryParams Params;
-		Params.AddIgnoredActor(this);
-
-		GetWorld()->OverlapMultiByChannel(
-			Overlaps,
-			Start,
-			FQuat::Identity,
-			ECC_Pawn,
-			FCollisionShape::MakeSphere(HitData.Range),
-			Params
-		);
-
-		for (const FOverlapResult& Overlap : Overlaps)
-		{
-			if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Overlap.GetActor()))
+			float Distance = FVector::Dist(Start, TargetPlayer->GetActorLocation());
+			if (Distance <= HitData.Range)
 			{
-				OutHitTargets.Add(Target);
-				if (!HitData.bPenetrate) break;
+				OutHitTargets.Add(TargetPlayer);
 			}
+			break;
 		}
-		break;
-	}
 
-	case EAttackHitType::Line:
-	{
-		// 횡베기: 좌우로 넓고 전방으로 얇은 Box
-		FVector HitStart = Start;
-		FVector HitEnd = Start + (Forward * HitData.Range);
-		FVector HitCenter = (HitStart + HitEnd) * 0.5f;
-
-		// Box 크기: X=얇게, Y=넓게!
-		FVector BoxExtent(
-			HitData.Thickness * 0.5f,  // 전방 두께 (얇게)
-			HitData.Width * 1.f,      // 좌우 폭 (넓게!)
-			HitData.Height * 0.5f      // 상하 높이
-		);
-
-		TArray<FHitResult> HitResults;
-		FCollisionQueryParams Params;
-		Params.AddIgnoredActor(this);
-
-		GetWorld()->SweepMultiByChannel(
-			HitResults,
-			HitStart,
-			HitEnd,
-			GetActorQuat(),
-			ECC_Pawn,
-			FCollisionShape::MakeBox(BoxExtent),
-			Params
-		);
-
-		for (const FHitResult& Hit : HitResults)
+		case EAttackHitType::Sphere:
 		{
-			if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Hit.GetActor()))
+			// 360도 원형 범위
+			TArray<FOverlapResult> Overlaps;
+			FCollisionQueryParams Params;
+			Params.AddIgnoredActor(this);
+
+			GetWorld()->OverlapMultiByChannel(
+				Overlaps,
+				Start,
+				FQuat::Identity,
+				ECC_Pawn,
+				FCollisionShape::MakeSphere(HitData.Range),
+				Params
+			);
+
+			for (const FOverlapResult& Overlap : Overlaps)
 			{
-				OutHitTargets.Add(Target);
-				if (!HitData.bPenetrate) break;
-			}
-		}
-		break;
-	}
-
-	case EAttackHitType::Box:
-	{
-		// 전방 사각형
-		FVector HitStart = Start;
-		FVector HitEnd = Start + (Forward * HitData.Range);
-
-		FVector BoxExtent(
-			HitData.Range * 0.5f,
-			HitData.Width * 0.5f,
-			HitData.Height * 0.5f
-		);
-
-		TArray<FHitResult> HitResults;
-		FCollisionQueryParams Params;
-		Params.AddIgnoredActor(this);
-
-		GetWorld()->SweepMultiByChannel(
-			HitResults,
-			HitStart,
-			HitEnd,
-			GetActorQuat(),
-			ECC_Pawn,
-			FCollisionShape::MakeBox(BoxExtent),
-			Params
-		);
-
-		for (const FHitResult& Hit : HitResults)
-		{
-			if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Hit.GetActor()))
-			{
-				OutHitTargets.Add(Target);
-				if (!HitData.bPenetrate) break;
-			}
-		}
-		break;
-	}
-
-	case EAttackHitType::Cone:
-	{
-		// 부채꼴
-		TArray<FOverlapResult> Overlaps;
-		FCollisionQueryParams Params;
-		Params.AddIgnoredActor(this);
-
-		// 일단 구체로 후보 찾기
-		GetWorld()->OverlapMultiByChannel(
-			Overlaps,
-			Start,
-			FQuat::Identity,
-			ECC_Pawn,
-			FCollisionShape::MakeSphere(HitData.Range),
-			Params
-		);
-
-		// 각도 필터링
-		for (const FOverlapResult& Overlap : Overlaps)
-		{
-			if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Overlap.GetActor()))
-			{
-				FVector ToTarget = (Target->GetActorLocation() - Start).GetSafeNormal();
-				float Dot = FVector::DotProduct(Forward, ToTarget);
-				float AngleRad = FMath::Acos(Dot);
-				float AngleDeg = FMath::RadiansToDegrees(AngleRad);
-
-				if (AngleDeg <= HitData.Angle / 2.0f)
+				if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Overlap.GetActor()))
 				{
 					OutHitTargets.Add(Target);
 					if (!HitData.bPenetrate) break;
 				}
 			}
+			break;
 		}
-		break;
-	}
 
-	case EAttackHitType::Capsule:
-	{
-		// 긴 원통
-		FVector HitStart = Start;
-		FVector HitEnd = Start + (Forward * HitData.Range);
-
-		TArray<FHitResult> HitResults;
-		FCollisionQueryParams Params;
-		Params.AddIgnoredActor(this);
-
-		GetWorld()->SweepMultiByChannel(
-			HitResults,
-			HitStart,
-			HitEnd,
-			FQuat::Identity,
-			ECC_Pawn,
-			FCollisionShape::MakeCapsule(HitData.Radius, HitData.Range * 0.5f),
-			Params
-		);
-
-		for (const FHitResult& Hit : HitResults)
+		case EAttackHitType::Line:
 		{
-			if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Hit.GetActor()))
+			// 횡베기: 좌우로 넓고 전방으로 얇은 Box
+			FVector HitStart = Start;
+			FVector HitEnd = Start + (Forward * HitData.Range);
+			FVector HitCenter = (HitStart + HitEnd) * 0.5f;
+
+			// Box 크기: X=얇게, Y=넓게!
+			FVector BoxExtent(
+				HitData.Thickness * 0.5f,  // 전방 두께 (얇게)
+				HitData.Width * 1.f,      // 좌우 폭 (넓게!)
+				HitData.Height * 0.5f      // 상하 높이
+			);
+
+			TArray<FHitResult> HitResults;
+			FCollisionQueryParams Params;
+			Params.AddIgnoredActor(this);
+
+			GetWorld()->SweepMultiByChannel(
+				HitResults,
+				HitStart,
+				HitEnd,
+				GetActorQuat(),
+				ECC_Pawn,
+				FCollisionShape::MakeBox(BoxExtent),
+				Params
+			);
+
+			for (const FHitResult& Hit : HitResults)
 			{
-				OutHitTargets.Add(Target);
-				if (!HitData.bPenetrate) break;
+				if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Hit.GetActor()))
+				{
+					OutHitTargets.Add(Target);
+					if (!HitData.bPenetrate) break;
+				}
 			}
+			break;
 		}
-		break;
-	}
+
+		case EAttackHitType::Box:
+		{
+			// 전방 사각형
+			FVector HitStart = Start;
+			FVector HitEnd = Start + (Forward * HitData.Range);
+
+			FVector BoxExtent(
+				HitData.Range * 0.5f,
+				HitData.Width * 0.5f,
+				HitData.Height * 0.5f
+			);
+
+			TArray<FHitResult> HitResults;
+			FCollisionQueryParams Params;
+			Params.AddIgnoredActor(this);
+
+			GetWorld()->SweepMultiByChannel(
+				HitResults,
+				HitStart,
+				HitEnd,
+				GetActorQuat(),
+				ECC_Pawn,
+				FCollisionShape::MakeBox(BoxExtent),
+				Params
+			);
+
+			for (const FHitResult& Hit : HitResults)
+			{
+				if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Hit.GetActor()))
+				{
+					OutHitTargets.Add(Target);
+					if (!HitData.bPenetrate) break;
+				}
+			}
+			break;
+		}
+
+		case EAttackHitType::Cone:
+		{
+			// 부채꼴
+			TArray<FOverlapResult> Overlaps;
+			FCollisionQueryParams Params;
+			Params.AddIgnoredActor(this);
+
+			// 일단 구체로 후보 찾기
+			GetWorld()->OverlapMultiByChannel(
+				Overlaps,
+				Start,
+				FQuat::Identity,
+				ECC_Pawn,
+				FCollisionShape::MakeSphere(HitData.Range),
+				Params
+			);
+
+			// 각도 필터링
+			for (const FOverlapResult& Overlap : Overlaps)
+			{
+				if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Overlap.GetActor()))
+				{
+					FVector ToTarget = (Target->GetActorLocation() - Start).GetSafeNormal();
+					float Dot = FVector::DotProduct(Forward, ToTarget);
+					float AngleRad = FMath::Acos(Dot);
+					float AngleDeg = FMath::RadiansToDegrees(AngleRad);
+
+					if (AngleDeg <= HitData.Angle / 2.0f)
+					{
+						OutHitTargets.Add(Target);
+						if (!HitData.bPenetrate) break;
+					}
+				}
+			}
+			break;
+		}
+
+		case EAttackHitType::Capsule:
+		{
+			// 긴 원통
+			FVector HitStart = Start;
+			FVector HitEnd = Start + (Forward * HitData.Range);
+
+			TArray<FHitResult> HitResults;
+			FCollisionQueryParams Params;
+			Params.AddIgnoredActor(this);
+
+			GetWorld()->SweepMultiByChannel(
+				HitResults,
+				HitStart,
+				HitEnd,
+				FQuat::Identity,
+				ECC_Pawn,
+				FCollisionShape::MakeCapsule(HitData.Radius, HitData.Range * 0.5f),
+				Params
+			);
+
+			for (const FHitResult& Hit : HitResults)
+			{
+				if (ACC_PlayerCharacter* Target = Cast<ACC_PlayerCharacter>(Hit.GetActor()))
+				{
+					OutHitTargets.Add(Target);
+					if (!HitData.bPenetrate) break;
+				}
+			}
+			break;
+		}
 	}
 
 	// 디버그 시각화
@@ -448,16 +460,51 @@ void ACC_EnemyCharacter::DealContactDamage(AActor* OtherActor)
 
 void ACC_EnemyCharacter::Die()
 {
+
+	// Drop experience for player
+	//if (TargetPlayer && ExperienceDrop > 0.0f)
+	//{
+	//	TargetPlayer->AddExperience(ExperienceDrop);
+	//	UE_LOG(LogTemp, Log, TEXT("Enemy dropped %.0f experience"), ExperienceDrop);
+	//}
+
+	// Drop experience to Gem
+	if (ExpGemClass)
+	{
+		FVector BaseLocation = GetActorLocation();
+
+		float RandomAngle = FMath::RandRange(0.0f, 360.0f);
+		float RandomRadius = FMath::RandRange(50.0f, 150.0f);
+
+		FVector Offset(
+			FMath::Cos(FMath::DegreesToRadians(RandomAngle)) * RandomRadius,
+			FMath::Sin(FMath::DegreesToRadians(RandomAngle)) * RandomRadius,
+			50.f
+		);
+
+		FVector SpawnLocation = BaseLocation + Offset;
+		FRotator SpawnRotation = FRotator::ZeroRotator;
+
+		ACC_ExperienceGem* Gem = GetWorld()->SpawnActor<ACC_ExperienceGem>(
+			ExpGemClass,
+			SpawnLocation,
+			SpawnRotation
+		);
+
+		if (Gem)
+		{
+			Gem->SetExpAmount(ExpGemAmount);
+			CC_LOG_ENEMY(Log, TEXT("[Enemy] Spawned EXP Gem (%f EXP)"), ExpGemAmount);
+		}
+	}
+	else
+	{
+		CC_LOG_ENEMY(Warning, TEXT("[Enemy] No ExpGemClass set!"));
+	}
+
 	if (UCC_AIManager* AIManager = UCC_AIManager::Get(this))
 	{
 		AIManager->UnregisterEnemy(this);
-	}
-
-	// Drop experience for player
-	if (TargetPlayer && ExperienceDrop > 0.0f)
-	{
-		TargetPlayer->AddExperience(ExperienceDrop);
-		UE_LOG(LogTemp, Log, TEXT("Enemy dropped %.0f experience"), ExperienceDrop);
 	}
 
 	// Call base class Die() to handle death animation, etc.
@@ -473,19 +520,16 @@ void ACC_EnemyCharacter::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent
 {
 	//DealContactDamage(OtherActor);
 
-	UE_LOG(LogTemp, Warning, TEXT("[ENEMY] %s - OnOverlapBegin with: %s"),
-		*GetName(), *OtherActor->GetName());
+	//UE_LOG(LogTemp, Warning, TEXT("[ENEMY] %s - OnOverlapBegin with: %s") *GetName(), *OtherActor->GetName());
 
 	if(ACC_PlayerCharacter* Player = Cast<ACC_PlayerCharacter>(OtherActor))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[ENEMY] %s - Detected PLAYER overlap!"),
-			*GetName());
+		//UE_LOG(LogTemp, Warning, TEXT("[ENEMY] %s - Detected PLAYER overlap!"), *GetName());
 
 		TargetPlayer = Player;
 
 
-		UE_LOG(LogTemp, Warning, TEXT("[ENEMY] %s - Calling TryAttack..."),
-			*GetName());
+		//UE_LOG(LogTemp, Warning, TEXT("[ENEMY] %s - Calling TryAttack..."), *GetName());
 
 
 		TryAttack(Player);
@@ -494,8 +538,7 @@ void ACC_EnemyCharacter::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent
 	}
 	else
 	{
-		UE_LOG(LogTemp, Log, TEXT("[ENEMY] %s - Overlap with non-player: %s"),
-			*GetName(), *OtherActor->GetClass()->GetName());
+		//UE_LOG(LogTemp, Log, TEXT("[ENEMY] %s - Overlap with non-player: %s"), *GetName(), *OtherActor->GetClass()->GetName());
 	}
 }
 
@@ -519,7 +562,7 @@ void ACC_EnemyCharacter::PerformAttack()
 		{
 			AnimInstance->Montage_Play(AttackMontage, 1.0f);
 
-			UE_LOG(LogTemp, Log, TEXT("[ENEMY] %s started attack animation"), *GetName());
+			//UE_LOG(LogTemp, Log, TEXT("[ENEMY] %s started attack animation"), *GetName());
 		}
 	}
 	else
@@ -548,8 +591,7 @@ void ACC_EnemyCharacter::StartAttackCooldown()
 		false  // Loop = false (Only once)
 	);
 
-	UE_LOG(LogTemp, Log, TEXT("[ENEMY] %s cooldown started (%.1fs)"),
-		*GetName(), EnemyStats.AttackCooldown);
+	//UE_LOG(LogTemp, Log, TEXT("[ENEMY] %s cooldown started (%.1fs)"), *GetName(), EnemyStats.AttackCooldown);
 }
 
 void ACC_EnemyCharacter::ResetAttackCooldown()
@@ -571,8 +613,7 @@ void ACC_EnemyCharacter::ResetAttackCooldown()
 
 void ACC_EnemyCharacter::OnAttackRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	CC_LOG_ENEMY(Warning, TEXT("%s - OnAttackRangeBeginOverlap with: %s"),
-		*GetName(), *OtherActor->GetName());
+	//CC_LOG_ENEMY(Warning, TEXT("%s - OnAttackRangeBeginOverlap with: %s"), *GetName(), *OtherActor->GetName());
 
 	if(ACC_PlayerCharacter* Player = Cast<ACC_PlayerCharacter>(OtherActor))
 	{
@@ -597,8 +638,7 @@ void ACC_EnemyCharacter::OnAttackRangeEndOverlap(UPrimitiveComponent* Overlapped
 		bPlayerInRange = false;
 		TargetPlayer = nullptr;
 
-		CC_LOG_ENEMY(Log, TEXT("%s - Player left ATTACK RANGE"),
-			*GetName());
+		//CC_LOG_ENEMY(Log, TEXT("%s - Player left ATTACK RANGE"), *GetName());
 	}
 }
 

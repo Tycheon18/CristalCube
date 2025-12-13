@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "CC_Weapon.h"
+#include "../CC_Weapon.h"
 #include "CC_BasicGun.generated.h"
 
 /**
@@ -19,4 +19,8 @@ public:
 	ACC_BasicGun();
 
 	virtual void Attack() override;
+
+protected:
+
+	void ExecuteGunAttack();
 };

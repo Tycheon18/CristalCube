@@ -6,6 +6,9 @@
 #include "TimerManager.h"
 #include "NiagaraFunctionLibrary.h"
 #include "CC_Projectile.h"
+#include "../CC_EnemyManager.h"
+#include "../CC_SearchingComponent.h"
+#include "../Characters/CC_PlayerCharacter.h"
 
 
 // Sets default values
@@ -120,14 +123,13 @@ void ACC_Weapon::PerformRangedAttack()
 		return;
 	}
 
-	// Calculate spawn location (75cm in front of owner by default)
-	FVector SpawnOffset = FVector(75.0f, 0.0f, 0.0f);
-	FVector SpawnLocation = WeaponOwner->GetActorLocation() +
-		WeaponOwner->GetActorRotation().RotateVector(SpawnOffset);
-
-	// Get firing direction
+	// 1. Get firing direction
 	FVector FiringDirection = GetFiringDirection();
 	FRotator BaseRotation = FiringDirection.Rotation();
+
+	// 2. Set spawn location infront of firing direction
+	FVector SpawnLocation = WeaponOwner->GetActorLocation() +
+		(FiringDirection * 75.0f);
 
 	// Get final projectile count (base + upgrades)
 	int32 FinalCount = GetFinalProjectileCount();
@@ -258,6 +260,28 @@ void ACC_Weapon::SpawnMultipleProjectiles(const FVector& SpawnLocation, const FR
 	}
 }
 
+UCC_SearchingComponent* ACC_Weapon::GetSearchingComponent() const
+{
+	if(!WeaponOwner)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[WEAPON] No WeaponOwner set!"));
+		return nullptr;
+	}
+
+	if (ACC_PlayerCharacter* Player = Cast<ACC_PlayerCharacter>(WeaponOwner))
+	{
+		return Player->GetSearchingComponent();
+	}
+
+	// if (ACC_EnemyCharacter* Enemy = Cast<ACC_EnemyCharacter>(WeaponOwner))
+	// {
+	//     return Enemy->GetSearchingComponent();
+	// }
+
+	UE_LOG(LogTemp, Warning, TEXT("[WEAPON] Owner has no SearchingComponent!"));
+	return nullptr;
+}
+
 FVector ACC_Weapon::GetFiringDirection() const
 {
 	if (!WeaponOwner)
@@ -281,57 +305,44 @@ FVector ACC_Weapon::GetFiringDirection() const
 	return WeaponOwner->GetActorForwardVector();
 }
 
-AActor* ACC_Weapon::FindNearestEnemy() const
+AActor* ACC_Weapon::FindNearestEnemy(float SearchRadius) const
 {
-	if (!WeaponOwner || !GetWorld())
+	UCC_SearchingComponent* Searching = GetSearchingComponent();
+	if (!Searching || !WeaponOwner)
 	{
 		return nullptr;
 	}
+	
+	FVector OwnerLocation = WeaponOwner->GetActorLocation();
+	return Searching->FindNearestEnemy(OwnerLocation, SearchRadius);
+	
+}
 
-	// Find all actors with tag "Enemy" within radius
-	TArray<AActor*> FoundActors;
-	UGameplayStatics::GetAllActorsWithTag(GetWorld(), FName("Enemy"), FoundActors);
-
-	AActor* NearestEnemy = nullptr;
-	float NearestDistance = AutoAimRadius;
+TArray<AActor*> ACC_Weapon::FindRandomEnemies(float SearchRadius, int32 Count)
+{
+	UCC_SearchingComponent* Searching = GetSearchingComponent();
+	if (!Searching || !WeaponOwner) return TArray<AActor*>();
 
 	FVector OwnerLocation = WeaponOwner->GetActorLocation();
+	return Searching->FindRandomEnemies(OwnerLocation, SearchRadius, Count);
+}
 
-	// Find the closest enemy
-	for (AActor* Actor : FoundActors)
-	{
-		if (!Actor || Actor == WeaponOwner)
-		{
-			continue;
-		}
+TArray<AActor*> ACC_Weapon::GetEnemiesInRadius(float Radius)
+{
+	UCC_SearchingComponent* Searching = GetSearchingComponent();
+	if (!Searching || !WeaponOwner) return TArray<AActor*>();
 
-		float Distance = FVector::Dist(OwnerLocation, Actor->GetActorLocation());
+	FVector OwnerLocation = WeaponOwner->GetActorLocation();
+	return Searching->GetEnemiesInSphere(OwnerLocation, Radius);
+}
 
-		if (Distance < NearestDistance)
-		{
-			NearestDistance = Distance;
-			NearestEnemy = Actor;
-		}
-	}
+TArray<AActor*> ACC_Weapon::GetEnemiesInCone(FVector Direction, float Range, float Angle)
+{
+	UCC_SearchingComponent* Searching = GetSearchingComponent();
+	if (!Searching || !WeaponOwner) return TArray<AActor*>();
 
-	// Debug visualization (optional, disabled in shipping builds)
-#if !UE_BUILD_SHIPPING
-	if (NearestEnemy)
-	{
-		DrawDebugLine(
-			GetWorld(),
-			OwnerLocation,
-			NearestEnemy->GetActorLocation(),
-			FColor::Red,
-			false,
-			0.1f,
-			0,
-			2.0f
-		);
-	}
-#endif
-
-	return NearestEnemy;
+	FVector OwnerLocation = WeaponOwner->GetActorLocation();
+	return Searching->GetEnemiesInCone(OwnerLocation, Direction, Range, Angle);
 }
 
 TArray<FRotator> ACC_Weapon::CalculateSpreadRotations(const FRotator& BaseRotation, int32 Count, float Spread) const

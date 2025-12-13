@@ -93,6 +93,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Reward")
 	float ExperienceDrop;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Reward")
+	TSubclassOf<class ACC_ExperienceGem> ExpGemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Reward")
+	float ExpGemAmount = 10.0f;
+
 	// Override Die() to drop experience
 	virtual void Die() override;
 
