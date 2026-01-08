@@ -4,8 +4,9 @@
 #include "CC_CubeSystemTester.h"
 #include "CC_TestActor.h"
 #include "Kismet/GameplayStatics.h"
-#include "../Gameplay/CC_Tile.h"
+#include "../CC_CubeWorldManager.h"
 #include "../Gameplay/CC_Cube.h"
+#include "TimerManager.h"
 
 // Sets default values
 ACC_CubeSystemTester::ACC_CubeSystemTester()
@@ -19,29 +20,17 @@ ACC_CubeSystemTester::ACC_CubeSystemTester()
 void ACC_CubeSystemTester::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	// Cube 찾기
-	TArray<AActor*> FoundCubes;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACC_Cube::StaticClass(), FoundCubes);
 
-	if (FoundCubes.Num() > 0)
+	if (bAutoRunTests)
 	{
-		Cube = Cast<ACC_Cube>(FoundCubes[0]);
-
-		//if (bAutoRunTests && Cube)
-		//{
-		//	GetWorld()->GetTimerManager().SetTimer(
-		//		TestStartTimerHandle,
-		//		this,
-		//		&ACC_CubeSystemTester::RunAllTests,
-		//		TestStartDelay,
-		//		false
-		//	);
-		//}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("[CubeTester] No Cube found in level!"));
+		// 딜레이 후 테스트 실행
+		GetWorld()->GetTimerManager().SetTimer(
+			TestTimerHandle,
+			this,
+			&ACC_CubeSystemTester::RunAllTests,
+			TestStartDelay,
+			false
+		);
 	}
 }
 
@@ -55,22 +44,27 @@ void ACC_CubeSystemTester::Tick(float DeltaTime)
 void ACC_CubeSystemTester::RunAllTests()
 {
 	UE_LOG(LogTemp, Warning, TEXT("=============================================="));
-	UE_LOG(LogTemp, Warning, TEXT("   CUBE SYSTEM TEST START"));
+	UE_LOG(LogTemp, Warning, TEXT("   CUBE SYSTEM - AUTOMATED TESTING"));
 	UE_LOG(LogTemp, Warning, TEXT("=============================================="));
+	
+	TestResults.Empty();
+	FindCubeManager();
 
-	TestsPassed = 0;
-	TestsFailed = 0;
-	TestLog.Empty();
+	if (!CubeManager)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Test] CubeWorldManager not found! Cannot run tests."));
+		return;
+	}
 
 	// 8가지 테스트 실행
-	Test_CubeInitialization();
-	Test_TileGeneration();
-	Test_ActorRegistration();
-	Test_TileActivation();
-	Test_PlayerMovementSimulation();
-	Test_TestActorDeactivation();
-	Test_PerformanceMeasurement();
-	Test_CubeWallWrapAround();
+	Test_ManagerInitialization();
+	Test_GridGeneration();
+	Test_CubeSpawning();
+	Test_FreezeSystem();
+	Test_BoundaryDetection();
+	Test_CoordinateWrapping();
+	Test_CubeTransition();
+	Test_ActorManagement();
 
 	// 리포트 출력
 	PrintTestReport();
@@ -78,28 +72,39 @@ void ACC_CubeSystemTester::RunAllTests()
 
 void ACC_CubeSystemTester::PrintTestReport()
 {
-	float SuccessRate = (TestsPassed + TestsFailed) > 0
-		? (float)TestsPassed / (TestsPassed + TestsFailed) * 100.0f
+	int32 PassedTests = 0;
+	int32 TotalTests = TestResults.Num();
+
+	for (const FTestResult& Result : TestResults)
+	{
+		if (Result.bPassed)
+			PassedTests++;
+	}
+
+
+	float SuccessRate = (TotalTests) > 0
+		? (PassedTests * 100.f / TotalTests)
 		: 0.0f;
 
 	UE_LOG(LogTemp, Warning, TEXT("=============================================="));
 	UE_LOG(LogTemp, Warning, TEXT("   CUBE SYSTEM TEST REPORT"));
 	UE_LOG(LogTemp, Warning, TEXT("=============================================="));
-	UE_LOG(LogTemp, Warning, TEXT("Total Tests: %d"), TestsPassed + TestsFailed);
-	UE_LOG(LogTemp, Warning, TEXT("Passed: %d"), TestsPassed);
-	UE_LOG(LogTemp, Warning, TEXT("Failed: %d"), TestsFailed);
+	UE_LOG(LogTemp, Warning, TEXT("Total Tests: %d"), TotalTests);
+	UE_LOG(LogTemp, Warning, TEXT("Passed: %d"), PassedTests);
+	UE_LOG(LogTemp, Warning, TEXT("Failed: %d"), TotalTests - PassedTests);
 	UE_LOG(LogTemp, Warning, TEXT("Success Rate: %.1f%%"), SuccessRate);
 	UE_LOG(LogTemp, Warning, TEXT("=============================================="));
 	UE_LOG(LogTemp, Warning, TEXT("Detailed Results:"));
 
-	for (const FString& Log : TestLog)
+	for (const FTestResult& Result : TestResults)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("%s"), *Log);
+		FString Status = Result.bPassed ? TEXT("[PASS]") : TEXT("[FAIL]");
+		UE_LOG(LogTemp, Warning, TEXT("%s %s: %s"), *Status, *Result.TestName, *Result.Message);
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("=============================================="));
 
-	if (TestsFailed == 0)
+	if (PassedTests == TotalTests)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("   ALL TESTS PASSED!"));
 	}
@@ -111,432 +116,228 @@ void ACC_CubeSystemTester::PrintTestReport()
 	UE_LOG(LogTemp, Warning, TEXT("=============================================="));
 }
 
-// ========== 테스트 1: Cube 초기화 ==========
-bool ACC_CubeSystemTester::Test_CubeInitialization()
+bool ACC_CubeSystemTester::Test_ManagerInitialization()
 {
-	FString TestName = TEXT("Cube System Initialization");
+    bool bPassed = (CubeManager != nullptr);
+    FString Message = bPassed
+        ? TEXT("CubeWorldManager found and initialized")
+        : TEXT("CubeWorldManager not found");
 
-	if (!Cube)
-	{
-		LogTest(TestName, false, TEXT("Cube not found"));
-		return false;
-	}
-
-	if (Cube->CubeTiles.Num() != 9)
-	{
-		LogTest(TestName, false, FString::Printf(TEXT("Expected 9 tiles, found %d"), Cube->CubeTiles.Num()));
-		return false;
-	}
-
-	LogTest(TestName, true, TEXT("Cube initialized with 9 tiles"));
-	return true;
+    AddTestResult(TEXT("Manager Initialization"), bPassed, Message);
+    return bPassed;
 }
 
-// ========== 테스트 2: 타일 생성 ==========
-bool ACC_CubeSystemTester::Test_TileGeneration()
+bool ACC_CubeSystemTester::Test_GridGeneration()
 {
-	FString TestName = TEXT("Tile Generation & Layout");
+    if (!CubeManager)
+    {
+        AddTestResult(TEXT("Grid Generation"), false, TEXT("Manager not available"));
+        return false;
+    }
 
-	for (int32 i = 0; i < 9; ++i)
-	{
-		ACC_Tile* Tile = Cube->GetTileAt(i);
-		if (!Tile)
-		{
-			LogTest(TestName, false, FString::Printf(TEXT("Tile %d not found"), i));
-			return false;
-		}
+    int32 ExpectedGridSize = 9; // 3x3
+    int32 ActualGridSize = CubeManager->CubeGrid.Num();
 
-		int32 TileIndex = Tile->GetTileIndex();
+    bool bPassed = (ActualGridSize == ExpectedGridSize);
+    FString Message = FString::Printf(TEXT("Grid size: %d (Expected: %d)"), ActualGridSize, ExpectedGridSize);
 
-		if (TileIndex != i)
-		{
-			LogTest(TestName, false, FString::Printf(TEXT("Tile %d has wrong index: %d"), i, TileIndex));
-			return false;
-		}
-	}
-
-	LogTest(TestName, true, TEXT("All 9 tiles generated correctly"));
-	return true;
+    AddTestResult(TEXT("Grid Generation"), bPassed, Message);
+    return bPassed;
 }
 
-// ========== 테스트 3: Actor 등록/해제 ==========
-bool ACC_CubeSystemTester::Test_ActorRegistration()
+bool ACC_CubeSystemTester::Test_CubeSpawning()
 {
-	FString TestName = TEXT("Actor Registration/Unregistration");
+    if (!CubeManager)
+    {
+        AddTestResult(TEXT("Cube Spawning"), false, TEXT("Manager not available"));
+        return false;
+    }
 
-	if (!TestActorClass)
-	{
-		LogTest(TestName, false, TEXT("TestActorClass not set!"));
-		UE_LOG(LogTemp, Warning, TEXT("TestActorClass not Set!"));
-		return false;
-	}
+    // 중앙 큐브가 Spawn되었는지 확인
+    ACC_Cube* CentralCube = CubeManager->FindCube(FIntPoint(1, 1));
+    bool bPassed = (CentralCube != nullptr);
 
-	ACC_TestActor* TestActor = SpawnTestActorAtTile(4);
-	if (!TestActor)
-	{
-		LogTest(TestName, false, TEXT("Failed to spawn test actor"));
-		UE_LOG(LogTemp, Warning, TEXT("Failed to spawn test actor"));
-		return false;
-	}
+    FString Message = bPassed
+        ? FString::Printf(TEXT("Central cube spawned at (%d, %d)"), 1, 1)
+        : TEXT("Central cube not spawned");
 
-	FPlatformProcess::Sleep(0.5f);
-
-	ACC_Tile* Tile4 = Cube->GetTileAt(4);
-	TArray<AActor*> ActorsInTile = Tile4->GetActorsInTile();
-	if (!ActorsInTile.Contains(TestActor))
-	{
-		LogTest(TestName, false, FString::Printf(TEXT("TestActor not registered in Tile 4 (ActorsInTile: %d)"),
-			ActorsInTile.Num()));
-		UE_LOG(LogTemp, Warning, TEXT("TestActor not registered in Tile 4 (ActorsInTile: %d)"),
-			ActorsInTile.Num());
-		TestActor->Destroy();
-		return false;
-	}
-
-	int32 CountBefore = Tile4->GetActorsInTile().Num();
-	TestActor->Destroy();
-	FPlatformProcess::Sleep(0.5f);
-	int32 CountAfter = Tile4->GetActorsInTile().Num();
-
-	if (CountAfter != CountBefore - 1)
-	{
-		LogTest(TestName, false, FString::Printf(TEXT("Actor count mismatch (Before: %d, After: %d)"),
-			CountBefore, CountAfter));
-		UE_LOG(LogTemp, Warning, TEXT("Actor count mismatch (Before: %d, After: %d)"), CountBefore, CountAfter);
-		return false;
-	}
-
-	LogTest(TestName, true, TEXT("Actor registration/unregistration works correctly"));
-	UE_LOG(LogTemp, Warning, TEXT("Actor registration/unregistration works correctly"));
-	return true;
+    AddTestResult(TEXT("Cube Spawning"), bPassed, Message);
+    return bPassed;
 }
 
-// ========== 테스트 4: 타일 활성화/비활성화 ==========
-bool ACC_CubeSystemTester::Test_TileActivation()
+bool ACC_CubeSystemTester::Test_FreezeSystem()
 {
-	FString TestName = TEXT("Tile Activation/Deactivation");
+    if (!CubeManager)
+    {
+        AddTestResult(TEXT("Freeze System"), false, TEXT("Manager not available"));
+        return false;
+    }
 
-	Cube->ActivateAllTiles();
+    // 테스트 큐브 생성
+    ACC_Cube* TestCube = CubeManager->FindOrSpawnCube(FIntPoint(0, 0));
+    if (!TestCube)
+    {
+        AddTestResult(TEXT("Freeze System"), false, TEXT("Test cube spawn failed"));
+        return false;
+    }
 
-	for (int32 i = 0; i < 9; ++i)
-	{
-		ACC_Tile* Tile = Cube->GetTileAt(i);
-		if (!Tile || !Tile->IsTileActive())
-		{
-			LogTest(TestName, false, TEXT("ActivateAllTiles failed"));
-			return false;
-		}
-	}
+    // Freeze 테스트
+    TestCube->Unfreeze();
+    bool bActiveState = (TestCube->CubeState == ECubeState::Active);
 
-	Cube->ActivateOnlyTile(4);
+    TestCube->Freeze();
+    bool bFrozenState = (TestCube->CubeState == ECubeState::Frozen);
 
-	ACC_Tile* Tile4 = Cube->GetTileAt(4);
-	if (!Tile4 || !Tile4->IsTileActive())
-	{
-		LogTest(TestName, false, TEXT("Tile 4 should be active"));
-		return false;
-	}
+    bool bPassed = bActiveState && bFrozenState;
+    FString Message = FString::Printf(TEXT("Active: %s, Frozen: %s"),
+        bActiveState ? TEXT("OK") : TEXT("FAIL"),
+        bFrozenState ? TEXT("OK") : TEXT("FAIL"));
 
-	for (int32 i = 0; i < 9; ++i)
-	{
-		if (i == 4) continue;
-
-		ACC_Tile* Tile = Cube->GetTileAt(i);
-		if (Tile && Tile->IsTileActive())
-		{
-			LogTest(TestName, false, FString::Printf(TEXT("Tile %d should be inactive"), i));
-			return false;
-		}
-	}
-
-	LogTest(TestName, true, TEXT("Tile activation/deactivation works correctly"));
-	return true;
+    AddTestResult(TEXT("Freeze System"), bPassed, Message);
+    return bPassed;
 }
 
-// ========== 테스트 5: Player 이동 시뮬레이션 ==========
-bool ACC_CubeSystemTester::Test_PlayerMovementSimulation()
+bool ACC_CubeSystemTester::Test_BoundaryDetection()
 {
-	FString TestName = TEXT("Player Movement Simulation");
+    if (!CubeManager)
+    {
+        AddTestResult(TEXT("Boundary Detection"), false, TEXT("Manager not available"));
+        return false;
+    }
 
-	int32 TestPath[] = { 4, 5, 8, 7, 4 };
+    ACC_Cube* TestCube = CubeManager->FindCube(FIntPoint(1, 1));
+    if (!TestCube)
+    {
+        AddTestResult(TEXT("Boundary Detection"), false, TEXT("Test cube not found"));
+        return false;
+    }
 
-	for (int32 i = 0; i < 5; ++i)
-	{
-		int32 TileIndex = TestPath[i];
-		Cube->ActivateTilesAroundPlayer(TileIndex);
+    // 경계 트리거 확인
+    int32 ExpectedTriggers = 4; // Right, Left, Up, Down
+    int32 ActualTriggers = TestCube->BoundaryTriggers.Num();
 
-		ACC_Tile* ActiveTile = Cube->GetTileAt(TileIndex);
-		if (!ActiveTile || !ActiveTile->IsTileActive())
-		{
-			LogTest(TestName, false, FString::Printf(TEXT("Tile %d should be active"), TileIndex));
-			return false;
-		}
+    bool bPassed = (ActualTriggers == ExpectedTriggers);
+    FString Message = FString::Printf(TEXT("Boundary triggers: %d (Expected: %d)"),
+        ActualTriggers, ExpectedTriggers);
 
-		for (int32 j = 0; j < 9; ++j)
-		{
-			if (j == TileIndex) continue;
-
-			ACC_Tile* OtherTile = Cube->GetTileAt(j);
-			if (OtherTile && OtherTile->IsTileActive())
-			{
-				LogTest(TestName, false, FString::Printf(TEXT("Tile %d should be inactive"), j));
-				return false;
-			}
-		}
-	}
-
-	LogTest(TestName, true, TEXT("Player movement simulation successful"));
-	return true;
+    AddTestResult(TEXT("Boundary Detection"), bPassed, Message);
+    return bPassed;
 }
 
-// ========== 테스트 6: TestActor 비활성화 ==========
-bool ACC_CubeSystemTester::Test_TestActorDeactivation()
+bool ACC_CubeSystemTester::Test_CoordinateWrapping()
 {
-	FString TestName = TEXT("TestActor Deactivation on Tile Switch");
+    if (!CubeManager)
+    {
+        AddTestResult(TEXT("Coordinate Wrapping"), false, TEXT("Manager not available"));
+        return false;
+    }
 
-	if (!TestActorClass)
-	{
-		LogTest(TestName, false, TEXT("TestActorClass not set!"));
-		return false;
-	}
+    // 순환 계산 테스트
+    FIntPoint TestCoord(2, 2); // 오른쪽 하단
 
-	TArray<ACC_TestActor*> TestActors;
-	for (int32 i = 0; i < 5; ++i)
-	{
-		ACC_TestActor* TestActor = SpawnTestActorAtTile(4);
-		if (TestActor)
-		{
-			TestActors.Add(TestActor);
-		}
-	}
+    FIntPoint RightWrap = CubeManager->GetNextCubeCoord(TestCoord, EBoundaryDirection::Right);
+    FIntPoint DownWrap = CubeManager->GetNextCubeCoord(TestCoord, EBoundaryDirection::Down);
 
-	FPlatformProcess::Sleep(0.5f);
+    bool bRightCorrect = (RightWrap.X == 0 && RightWrap.Y == 2); // (2,2) -> (0,2)
+    bool bDownCorrect = (DownWrap.X == 2 && DownWrap.Y == 0);    // (2,2) -> (2,0)
 
-	ACC_Tile* Tile4 = Cube->GetTileAt(4);
-	TArray<AActor*> ActorsInTile = Tile4->GetActorsInTile();
-	if (ActorsInTile.Num() != 5)
-	{
-		LogTest(TestName, false, FString::Printf(TEXT("Expected 5 testactors in Tile 4, found %d"),
-			ActorsInTile.Num()));
-		CleanupTestActors();
-		return false;
-	}
+    bool bPassed = bRightCorrect && bDownCorrect;
+    FString Message = FString::Printf(TEXT("Right wrap: %s, Down wrap: %s"),
+        bRightCorrect ? TEXT("OK") : TEXT("FAIL"),
+        bDownCorrect ? TEXT("OK") : TEXT("FAIL"));
 
-	Cube->ActivateTilesAroundPlayer(4);
-	FPlatformProcess::Sleep(0.2f);
-
-	for (ACC_TestActor* TestActor : TestActors)
-	{
-		if (!TestActor || !TestActor->IsActorTickEnabled())
-		{
-			LogTest(TestName, false, TEXT("TestActor should be active in Tile 4"));
-			CleanupTestActors();
-			return false;
-		}
-	}
-
-	Cube->ActivateTilesAroundPlayer(5);
-	FPlatformProcess::Sleep(0.2f);
-
-	int32 ActiveCount = 0;
-	for (ACC_TestActor* TestActor : TestActors)
-	{
-		if (TestActor && TestActor->IsActorTickEnabled())
-		{
-			ActiveCount++;
-		}
-	}
-
-	if (ActiveCount > 0)
-	{
-		LogTest(TestName, false, FString::Printf(TEXT("Expected 0 active testactors, found %d"), ActiveCount));
-		CleanupTestActors();
-		return false;
-	}
-
-	Cube->ActivateTilesAroundPlayer(4);
-	FPlatformProcess::Sleep(0.2f);
-
-	ActiveCount = 0;
-	for (ACC_TestActor* TestActor : TestActors)
-	{
-		if (TestActor && TestActor->IsActorTickEnabled())
-		{
-			ActiveCount++;
-		}
-	}
-
-	if (ActiveCount != 5)
-	{
-		LogTest(TestName, false, FString::Printf(TEXT("Expected 5 active testactors, found %d"), ActiveCount));
-		CleanupTestActors();
-		return false;
-	}
-
-	for (ACC_TestActor* TestActor : TestActors)
-	{
-		if (TestActor)
-		{
-			TestActor->Destroy();
-		}
-	}
-
-	LogTest(TestName, true, TEXT("TestActor deactivation system works correctly"));
-	return true;
+    AddTestResult(TEXT("Coordinate Wrapping"), bPassed, Message);
+    return bPassed;
 }
 
-// ========== 테스트 7: 성능 측정 ==========
-bool ACC_CubeSystemTester::Test_PerformanceMeasurement()
+bool ACC_CubeSystemTester::Test_CubeTransition()
 {
-	FString TestName = TEXT("Performance Measurement");
+    if (!CubeManager)
+    {
+        AddTestResult(TEXT("Cube Transition"), false, TEXT("Manager not available"));
+        return false;
+    }
 
-	TArray<ACC_TestActor*> PerformanceTestActors;
-	for (int32 i = 0; i < NumPerformanceTestActors; ++i)
-	{
-		int32 TileIndex = i % 9;
-		ACC_TestActor* TestActor = SpawnTestActorAtTile(TileIndex);
-		if (TestActor)
-		{
-			PerformanceTestActors.Add(TestActor);
-		}
-	}
+    // 전환 전 상태 저장
+    FIntPoint BeforeCoord = CubeManager->CurrentCubeCoord;
 
-	FPlatformProcess::Sleep(1.0f);
+    // 전환 시뮬레이션 (실제론 안 함 - 테스트용)
+    FIntPoint SimulatedNext = CubeManager->GetNextCubeCoord(BeforeCoord, EBoundaryDirection::Right);
 
-	int32 TotalRegistered = 0;
-	for (int32 i = 0; i < 9; ++i)
-	{
-		ACC_Tile* Tile = Cube->GetTileAt(i);
-		if (Tile)
-		{
-			TotalRegistered += Tile->GetActorsInTile().Num();
-		}
-	}
+    bool bPassed = (SimulatedNext != BeforeCoord);
+    FString Message = FString::Printf(TEXT("Before: (%d,%d), After: (%d,%d)"),
+        BeforeCoord.X, BeforeCoord.Y, SimulatedNext.X, SimulatedNext.Y);
 
-	if (TotalRegistered != NumPerformanceTestActors)
-	{
-		LogTest(TestName, false, FString::Printf(TEXT("Expected %d registered TestActors, found %d"),
-			NumPerformanceTestActors, TotalRegistered));
-
-		for (ACC_TestActor* TestActor : PerformanceTestActors)
-		{
-			if (TestActor) TestActor->Destroy();
-		}
-		return false;
-	}
-
-	Cube->ActivateTilesAroundPlayer(4);
-	FPlatformProcess::Sleep(0.3f);
-
-	int32 ActiveTestActors = 0;
-	for (ACC_TestActor* TestActor : PerformanceTestActors)
-	{
-		if (TestActor && TestActor->IsActorTickEnabled())
-		{
-			ActiveTestActors++;
-		}
-	}
-
-	ACC_Tile* Tile4 = Cube->GetTileAt(4);
-	int32 ExpectedActive = Tile4 ? Tile4->GetActorsInTile().Num() : 0;
-
-	if (ActiveTestActors != ExpectedActive)
-	{
-		LogTest(TestName, false, FString::Printf(TEXT("Expected %d active TestActors (Tile 4), found %d"),
-			ExpectedActive, ActiveTestActors));
-
-		for (ACC_TestActor* TestActor : PerformanceTestActors)
-		{
-			if (TestActor) TestActor->Destroy();
-		}
-		return false;
-	}
-
-	float ReductionPercent = (1.0f - (float)ActiveTestActors / NumPerformanceTestActors) * 100.0f;
-	FString Message = FString::Printf(TEXT("%d/%d TestActors active (%.1f%% reduction)"),
-		ActiveTestActors, NumPerformanceTestActors, ReductionPercent);
-
-	for (ACC_TestActor* TestActor : PerformanceTestActors)
-	{
-		if (TestActor)
-		{
-			TestActor->Destroy();
-		}
-	}
-
-	LogTest(TestName, true, Message);
-	return true;
+    AddTestResult(TEXT("Cube Transition"), bPassed, Message);
+    return bPassed;
 }
 
-// ========== 테스트 8: CubeWall 순환 이동 ==========
-bool ACC_CubeSystemTester::Test_CubeWallWrapAround()
+bool ACC_CubeSystemTester::Test_ActorManagement()
 {
-	FString TestName = TEXT("CubeWall Wrap Around System");
+    if (!CubeManager)
+    {
+        AddTestResult(TEXT("Actor Management"), false, TEXT("Manager not available"));
+        return false;
+    }
 
-	// CubeWall 존재 확인
-	if (!Cube->CubeWall_Right || !Cube->CubeWall_Left ||
-		!Cube->CubeWall_Top || !Cube->CubeWall_Bottom)
-	{
-		LogTest(TestName, false, TEXT("CubeWalls not found"));
-		return false;
-	}
+    ACC_Cube* TestCube = CubeManager->FindCube(FIntPoint(1, 1));
+    if (!TestCube)
+    {
+        AddTestResult(TEXT("Actor Management"), false, TEXT("Test cube not found"));
+        return false;
+    }
 
-	// 참고: 실제 순환 이동은 플레이 중에 CubeWall이 자동 처리
-	// 여기서는 CubeWall 존재만 확인
-	LogTest(TestName, true, TEXT("CubeWalls ready for wrap around (4 walls detected)"));
-	return true;
+    // 테스트 Actor 생성
+    AActor* TestActor = GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), TestCube->GetCubeCenter(), FRotator::ZeroRotator);
+
+    // 등록
+    TestCube->RegisterActor(TestActor);
+    bool bRegistered = TestCube->ManagedActors.Contains(TestActor);
+
+    // 해제
+    TestCube->UnregisterActor(TestActor);
+    bool bUnregistered = !TestCube->ManagedActors.Contains(TestActor);
+
+    // 정리
+    if (TestActor)
+    {
+        TestActor->Destroy();
+    }
+
+    bool bPassed = bRegistered && bUnregistered;
+    FString Message = FString::Printf(TEXT("Register: %s, Unregister: %s"),
+        bRegistered ? TEXT("OK") : TEXT("FAIL"),
+        bUnregistered ? TEXT("OK") : TEXT("FAIL"));
+
+    AddTestResult(TEXT("Actor Management"), bPassed, Message);
+    return bPassed;
 }
 
-void ACC_CubeSystemTester::LogTest(const FString& TestName, bool bPassed, const FString& Message)
+// ========================================
+// Utilities
+// ========================================
+
+void ACC_CubeSystemTester::AddTestResult(const FString& TestName, bool bPassed, const FString& Message)
 {
-	if (bPassed)
-	{
-		TestsPassed++;
-		FString Log = FString::Printf(TEXT("[PASS] %s%s"), *TestName,
-			Message.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(": %s"), *Message));
-		TestLog.Add(Log);
-	}
-	else
-	{
-		TestsFailed++;
-		FString Log = FString::Printf(TEXT("[FAIL] %s%s"), *TestName,
-			Message.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(": %s"), *Message));
-		TestLog.Add(Log);
-	}
+    FTestResult Result;
+    Result.TestName = TestName;
+    Result.bPassed = bPassed;
+    Result.Message = Message;
+    TestResults.Add(Result);
 }
 
-ACC_TestActor* ACC_CubeSystemTester::SpawnTestActorAtTile(int32 TileIndex)
+void ACC_CubeSystemTester::FindCubeManager()
 {
-	if (!Cube || !TestActorClass) return nullptr;
+    TArray<AActor*> FoundActors;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACC_CubeWorldManager::StaticClass(), FoundActors);
 
-	ACC_Tile* Tile = Cube->GetTileAt(TileIndex);
-	if (!Tile) return nullptr;
-
-	FVector SpawnPos = Tile->GetTileCenter() + FVector(0, 0, 100);
-
-	ACC_TestActor* TestActor = GetWorld()->SpawnActor<ACC_TestActor>(
-		TestActorClass,
-		SpawnPos,
-		FRotator::ZeroRotator
-	);
-
-	if (TestActor)
-	{
-		SpawnedTestActors.Add(TestActor);
-	}
-
-	return TestActor;
+    if (FoundActors.Num() > 0)
+    {
+        CubeManager = Cast<ACC_CubeWorldManager>(FoundActors[0]);
+        UE_LOG(LogTemp, Log, TEXT("[Test] Found CubeWorldManager"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[Test] CubeWorldManager not found in level!"));
+    }
 }
-
-void ACC_CubeSystemTester::CleanupTestActors()
-{
-	for (ACC_TestActor* TestActor : SpawnedTestActors)
-	{
-		if (TestActor)
-		{
-			TestActor->Destroy();
-		}
-	}
-	SpawnedTestActors.Empty();
-}
-

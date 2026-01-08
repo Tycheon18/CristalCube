@@ -7,6 +7,8 @@
 #include "Engine/DataTable.h"
 #include "CristalCubeStruct.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnFadeComplete);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCubeTransition, FIntPoint, NewCoordinate);
 
 //==============================================================================
 // UPGRADE SYSTEM (Simplified DataTable Approach)
@@ -38,6 +40,33 @@ enum class EAttackHitType : uint8
     Cone        UMETA(DisplayName = "Cone"),        // 
     Capsule     UMETA(DisplayName = "Capsule")      // 
 };
+
+//==============================================================================
+// CUBE MANAGEMENT SYSTEM
+//==============================================================================
+
+UENUM(BlueprintType)
+enum class EBoundaryDirection : uint8
+{
+    Right UMETA(DisplayName = "Right"),
+    Left UMETA(DisplayName = "Left"),
+    Up UMETA(DisplayName = "Up"),
+    Down UMETA(DisplayName = "Down")
+};
+
+
+UENUM(BlueprintType)
+enum class ECubeState : uint8
+{
+    Active UMETA(DisplayName = "Active"),      // 현재 활성 큐브
+    Frozen UMETA(DisplayName = "Frozen"),      // 비활성 (시간 정지)
+    Unloaded UMETA(DisplayName = "Unloaded")   // 메모리에 없음
+};
+
+//==============================================================================
+// STRUCTS
+//==============================================================================
+
 
 // DataTable Row Structure
 USTRUCT(BlueprintType)
@@ -500,6 +529,50 @@ struct FAttackHitData
         , bPenetrate(false)
     {
     }
+};
+
+//==============================================================================
+// Actor Save Data
+//==============================================================================
+
+USTRUCT(BlueprintType)
+struct FActorSaveData
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    TSubclassOf<AActor> ActorClass;
+
+    UPROPERTY()
+    FTransform Transform;
+
+    UPROPERTY()
+    TMap<FString, FString> ActorState;
+};
+
+//==============================================================================
+// Cube Data
+//==============================================================================
+
+USTRUCT(BlueprintType)
+struct FCubeData
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    FIntPoint Coordinate = FIntPoint(0, 0);
+
+    UPROPERTY()
+    TArray<FActorSaveData> SavedActors;
+
+    UPROPERTY()
+    ECubeState State = ECubeState::Unloaded;
+
+    UPROPERTY()
+    bool bCleared = false;
+
+    UPROPERTY()
+    int32 CubeType = 0; // 추후 확장용
 };
 
 UCLASS()

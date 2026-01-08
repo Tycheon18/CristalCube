@@ -6,6 +6,21 @@
 #include "GameFramework/Actor.h"
 #include "CC_CubeSystemTester.generated.h"
 
+USTRUCT(BlueprintType)
+struct FTestResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FString TestName;
+
+	UPROPERTY()
+	bool bPassed = false;
+
+	UPROPERTY()
+	FString Message;
+};
+
 UCLASS()
 class CRISTALCUBE_API ACC_CubeSystemTester : public AActor
 {
@@ -46,6 +61,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Testing")
 	TSubclassOf<class ACC_TestActor> TestActorClass;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Testing")
+	class ACC_CubeWorldManager* CubeManager;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Testing")
+	TArray<FTestResult> TestResults;
+
+
 	// ========== 상태 ==========
 
 	/** Cube 참조 */
@@ -72,41 +94,54 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Testing")
 	void PrintTestReport();
 
-	// 개별 테스트
-	UFUNCTION(BlueprintCallable, Category = "Testing")
-	bool Test_CubeInitialization();
+	// ========================================
+	// Individual Tests
+	// ========================================
 
+	/** Test 1: Manager 초기화 */
 	UFUNCTION(BlueprintCallable, Category = "Testing")
-	bool Test_TileGeneration();
+	bool Test_ManagerInitialization();
 
+	/** Test 2: 3x3 그리드 생성 */
 	UFUNCTION(BlueprintCallable, Category = "Testing")
-	bool Test_ActorRegistration();
-	
-	UFUNCTION(BlueprintCallable, Category = "Testing")
-	bool Test_TileActivation();
-	
-	UFUNCTION(BlueprintCallable, Category = "Testing")
-	bool Test_PlayerMovementSimulation();
+	bool Test_GridGeneration();
 
+	/** Test 3: 큐브 Spawn */
 	UFUNCTION(BlueprintCallable, Category = "Testing")
-	bool Test_TestActorDeactivation();
-	
-	UFUNCTION(BlueprintCallable, Category = "Testing")
-	bool Test_PerformanceMeasurement();
+	bool Test_CubeSpawning();
 
+	/** Test 4: Freeze/Unfreeze */
 	UFUNCTION(BlueprintCallable, Category = "Testing")
-	bool Test_CubeWallWrapAround();
+	bool Test_FreezeSystem();
+
+	/** Test 5: 경계 감지 */
+	UFUNCTION(BlueprintCallable, Category = "Testing")
+	bool Test_BoundaryDetection();
+
+	/** Test 6: 순환 좌표 계산 */
+	UFUNCTION(BlueprintCallable, Category = "Testing")
+	bool Test_CoordinateWrapping();
+
+	/** Test 7: 큐브 전환 (시뮬레이션) */
+	UFUNCTION(BlueprintCallable, Category = "Testing")
+	bool Test_CubeTransition();
+
+	/** Test 8: Actor 관리 */
+	UFUNCTION(BlueprintCallable, Category = "Testing")
+	bool Test_ActorManagement();
+
+	// ========================================
+	// Utilities
+	// ========================================
+
+	/** 테스트 결과 추가 */
+	void AddTestResult(const FString& TestName, bool bPassed, const FString& Message);
+
+	/** Manager 찾기 */
+	void FindCubeManager();
 
 protected:
-	/** 테스트 로그 */
-	void LogTest(const FString& TestName, bool bPassed, const FString& Message = TEXT(""));
 
-	/** 테스트 액터 생성 */
-	ACC_TestActor* SpawnTestActorAtTile(int32 TileIndex);
+	FTimerHandle TestTimerHandle;
 
-	/** 정리 */
-	void CleanupTestActors();
-
-	FTimerHandle TestStartTimerHandle;
-	TArray<class ACC_TestActor*> SpawnedTestActors;
 };

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "../CristalCubeStruct.h"
 #include "CC_Cube.generated.h"
 
 UCLASS()
@@ -138,4 +139,76 @@ protected:
 	/** 큐브 벽 초기화 */
 	void InitializeCubeWalls();
 
+public:
+
+	/** 큐브 좌표 (0,0) ~ (2,2) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cube")
+	FIntPoint CubeCoordinate;
+
+	/** 현재 상태 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cube")
+	ECubeState CubeState;
+
+	/** 이 큐브가 관리하는 Actor들 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cube")
+	TArray<AActor*> ManagedActors;
+
+	/** 큐브 바닥 (시각적) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Components")
+	UStaticMeshComponent* FloorMesh;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TArray<UBoxComponent*> BoundaryTriggers;
+
+	/** 큐브 초기화 */
+	UFUNCTION(BlueprintCallable, Category = "Cube")
+	void InitializeCube(FIntPoint Coordinate);
+
+	/** 경계 트리거 생성 */
+	void CreateBoundaryTriggers();
+
+	/** Actor 등록 (이 큐브에 소속) */
+	UFUNCTION(BlueprintCallable, Category = "Cube")
+	void RegisterActor(AActor* Actor);
+
+	/** Actor 해제 */
+	UFUNCTION(BlueprintCallable, Category = "Cube")
+	void UnregisterActor(AActor* Actor);
+
+	/** Actor가 이 큐브 내부에 있는지 확인 */
+	UFUNCTION(BlueprintCallable, Category = "Cube")
+	bool IsActorInCube(AActor* Actor) const;
+
+	/** 큐브 동결 (시간 정지) */
+	UFUNCTION(BlueprintCallable, Category = "Cube")
+	void Freeze();
+
+	/** 큐브 해제 (시간 재개) */
+	UFUNCTION(BlueprintCallable, Category = "Cube")
+	void Unfreeze();
+
+	/** Frozen 상태인지 확인 */
+	UFUNCTION(BlueprintCallable, Category = "Cube")
+	bool IsFrozen() const { return CubeState == ECubeState::Frozen; }
+
+	UFUNCTION()
+	void OnBoundaryOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
+		bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION(BlueprintCallable, Category = "Cube")
+	FVector GetCubeCenter() const;
+
+	/** 큐브 경계 Box */
+	UFUNCTION(BlueprintCallable, Category = "Cube")
+	FBox GetCubeBounds() const;
+
+	/** 디버그 Draw */
+	UFUNCTION(BlueprintCallable, Category = "Cube|Debug")
+	void DrawDebugInfo();
+
+
+protected:
+
+	TMap<UBoxComponent*, EBoundaryDirection> BoundaryDirectionMap;
 };
