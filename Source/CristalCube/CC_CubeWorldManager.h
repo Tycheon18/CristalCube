@@ -34,7 +34,7 @@ public:
 
     /** 큐브 크기 */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cube|Grid")
-    float CubeSize = 6000.0f;
+    float CubeSize = 500.0f;
 
     /** 큐브 클래스 */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cube|Grid")

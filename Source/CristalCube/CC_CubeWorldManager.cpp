@@ -95,7 +95,7 @@ ACC_Cube* ACC_CubeWorldManager::SpawnCube(FIntPoint Coordinate)
 	}
 
 	// Spawn
-	FVector SpawnLocation(Coordinate.X * CubeSize, Coordinate.Y * CubeSize, 0.0f);
+	FVector SpawnLocation(-Coordinate.X * CubeSize, Coordinate.Y * CubeSize, 0.0f);
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = this;
 
@@ -196,19 +196,19 @@ FIntPoint ACC_CubeWorldManager::GetNextCubeCoord(FIntPoint Current, EBoundaryDir
 	switch (Direction)
 	{
 	case EBoundaryDirection::Right:
-		Next.X = (Current.X + 1) % GridSize;
+		Next.Y = (Current.Y + 1) % GridSize;
 		break;
 
 	case EBoundaryDirection::Left:
-		Next.X = (Current.X - 1 + GridSize) % GridSize;
-		break;
-
-	case EBoundaryDirection::Up:
 		Next.Y = (Current.Y - 1 + GridSize) % GridSize;
 		break;
 
+	case EBoundaryDirection::Up:
+		Next.X = (Current.X - 1 + GridSize) % GridSize;
+		break;
+
 	case EBoundaryDirection::Down:
-		Next.Y = (Current.Y + 1) % GridSize;
+		Next.X = (Current.X + 1) % GridSize;
 		break;
 	}
 
@@ -270,16 +270,16 @@ FVector ACC_CubeWorldManager::CalculatePlayerPositionInCube(ACC_Cube* TargetCube
 	switch (FromDirection)
 	{
 	case EBoundaryDirection::Right:
-		return CubeCenter + FVector(-Offset, 0, 200); // 왼쪽에서 등장
+		return CubeCenter + FVector(0, Offset, 200); // 왼쪽에서 등장
 
 	case EBoundaryDirection::Left:
-		return CubeCenter + FVector(Offset, 0, 200); // 오른쪽에서 등장
+		return CubeCenter + FVector(0, -Offset, 200); // 오른쪽에서 등장
 
 	case EBoundaryDirection::Up:
-		return CubeCenter + FVector(0, Offset, 200); // 아래에서 등장
+		return CubeCenter + FVector(Offset, 0, 200); // 아래에서 등장
 
 	case EBoundaryDirection::Down:
-		return CubeCenter + FVector(0, -Offset, 200); // 위에서 등장
+		return CubeCenter + FVector(-Offset, 0, 200); // 위에서 등장
 	}
 
 	return CubeCenter;
@@ -301,6 +301,7 @@ void ACC_CubeWorldManager::MovePlayerToCube(FIntPoint Coordinate)
 	}
 
 	ACharacter* Player = GetPlayerCharacter();
+
 	if (Player)
 	{
 		FVector CubeCenter = Cube->GetCubeCenter();

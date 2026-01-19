@@ -29,7 +29,7 @@ public:
 
 	/** 전체 큐브 크기 (3x3 = 6000) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cube")
-	float CubeSize = 6000.0f;
+	float CubeSize = 500.0f;
 
 	/** 개별 타일 크기 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cube")

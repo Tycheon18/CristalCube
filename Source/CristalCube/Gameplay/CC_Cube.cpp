@@ -299,7 +299,7 @@ void ACC_Cube::InitializeCube(FIntPoint Coordinate)
 
 	// 큐브 위치 설정 (월드 좌표)
 	FVector CubeWorldLocation(
-		Coordinate.X * CubeSize,
+		-Coordinate.X * CubeSize,
 		Coordinate.Y * CubeSize,
 		0.0f
 	);
@@ -337,10 +337,10 @@ void ACC_Cube::CreateBoundaryTriggers()
 	};
 
 	TArray<FBoundaryInfo> Boundaries = {
-	{ EBoundaryDirection::Right, FVector(HalfSize, 0, 0), FVector(TriggerThickness, HalfSize, TriggerHeight), TEXT("RightBoundary"), FLinearColor::Red },
-	{ EBoundaryDirection::Left, FVector(-HalfSize, 0, 0), FVector(TriggerThickness, HalfSize, TriggerHeight), TEXT("LeftBoundary"), FLinearColor::Blue },
-	{ EBoundaryDirection::Up, FVector(0, -HalfSize, 0), FVector(HalfSize, TriggerThickness, TriggerHeight), TEXT("UpBoundary"), FLinearColor::Green },
-	{ EBoundaryDirection::Down, FVector(0, HalfSize, 0), FVector(HalfSize, TriggerThickness, TriggerHeight), TEXT("DownBoundary"), FLinearColor::Yellow }
+	{ EBoundaryDirection::Up, FVector(HalfSize, 0, 0), FVector(TriggerThickness, HalfSize, TriggerHeight), TEXT("UpBoundary"), FLinearColor::Red },
+	{ EBoundaryDirection::Down, FVector(-HalfSize, 0, 0), FVector(TriggerThickness, HalfSize, TriggerHeight), TEXT("DownBoundary"), FLinearColor::Blue },
+	{ EBoundaryDirection::Left, FVector(0 , -HalfSize, 0), FVector(HalfSize, TriggerThickness, TriggerHeight), TEXT("LeftBoundary"), FLinearColor::Green },
+	{ EBoundaryDirection::Right, FVector(0 , HalfSize, 0), FVector(HalfSize, TriggerThickness, TriggerHeight), TEXT("RightBoundary"), FLinearColor::Yellow }
 	};
 
 	for (const FBoundaryInfo& Info : Boundaries)
@@ -535,6 +535,10 @@ void ACC_Cube::OnBoundaryOverlap(UPrimitiveComponent* OverlappedComp, AActor* Ot
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
 	bool bFromSweep, const FHitResult& SweepResult)
 {
+	UE_LOG(LogTemp, Warning, TEXT("[Cube %d,%d] Boundary overlap detected by %s"),
+		CubeCoordinate.X, CubeCoordinate.Y,
+		*OtherActor->GetName());
+
 	if (IsFrozen())
 		return;
 
