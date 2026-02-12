@@ -4,6 +4,7 @@
 #include "CC_EnemySpawner.h"
 #include "Characters/CC_EnemyCharacter.h"
 #include "Characters/CC_PlayerCharacter.h"
+#include "Gameplay/CC_Cube.h"
 #include "CC_LogHelper.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
@@ -33,6 +34,8 @@ ACC_EnemySpawner::ACC_EnemySpawner()
     GameTime = 0.0f;
     CachedPlayer = nullptr;
 
+	OwnerCube = nullptr;
+	bIsFrozen = false;
 }
 
 // Called when the game starts or when spawned
@@ -51,10 +54,14 @@ void ACC_EnemySpawner::BeginPlay()
     CC_LOG_SPAWNER(Warning, TEXT("EnemySpawner initialized (Interval: %.1fs, Enemies/Spawn: %d, Max: %d)"),
         SpawnInterval, EnemiesPerSpawn, MaxEnemies);
 
-    if (bAutoStart)
+    if (bAutoStart && !OwnerCube)
     {
         StartSpawning();
     }
+    else if(OwnerCube)
+    {
+        CC_LOG_SPAWNER(Log, TEXT("Spawner waiting for Cube to unfreeze"));
+	}
 	
 }
 
@@ -192,6 +199,13 @@ ACC_EnemyCharacter* ACC_EnemySpawner::SpawnSingleEnemy(const FVector& Location)
 
     if (NewEnemy)
     {
+        if (OwnerCube)
+        {
+            OwnerCube->RegisterActor(NewEnemy);
+            CC_LOG_SPAWNER(VeryVerbose, TEXT("Registered enemy with Cube (%d, %d)"),
+                OwnerCube->CubeCoordinate.X, OwnerCube->CubeCoordinate.Y);
+        }
+
         CC_LOG_SPAWNER(VeryVerbose, TEXT("Spawned enemy at (%.0f, %.0f, %.0f)"),
             Location.X, Location.Y, Location.Z);
     }
@@ -205,20 +219,39 @@ ACC_EnemyCharacter* ACC_EnemySpawner::SpawnSingleEnemy(const FVector& Location)
 
 FVector ACC_EnemySpawner::GetRandomSpawnLocation() const
 {
-    if (!CachedPlayer)
+    FVector SpawnCenter;
+	float SpawnRadius;    
+    
+    if (OwnerCube)
+    {
+        SpawnCenter = OwnerCube->GetCubeCenter();
+        // Spawn within cube bounds (slightly smaller than cube size)
+        SpawnRadius = OwnerCube->CubeSize * 0.35f; 
+
+        CC_LOG_SPAWNER(VeryVerbose, TEXT("Using Cube center for spawn location"));
+    }
+    // Priority 2: Use Player center as fallback
+    else if (CachedPlayer)
+    {
+        SpawnCenter = CachedPlayer->GetActorLocation();
+        SpawnRadius = MaxSpawnDistance;
+
+        CC_LOG_SPAWNER(VeryVerbose, TEXT("Using Player center for spawn location"));
+    }
+    // Priority 3: World origin
+    else
     {
         CC_LOG_SPAWNER(Warning, TEXT("No player for spawn location, using world origin"));
         return FVector::ZeroVector;
     }
-
-    FVector PlayerLocation = CachedPlayer->GetActorLocation();
 
     // Random angle (360 degrees)
     float Angle = FMath::FRandRange(0.0f, 360.0f);
     float RadAngle = FMath::DegreesToRadians(Angle);
 
     // Random distance between min and max
-    float Distance = FMath::FRandRange(MinSpawnDistance, MaxSpawnDistance);
+    float MinDist = OwnerCube ? 0.0f : MinSpawnDistance;
+    float Distance = FMath::FRandRange(MinSpawnDistance, SpawnRadius);
 
     // Calculate offset from player
     FVector Offset;
@@ -226,7 +259,12 @@ FVector ACC_EnemySpawner::GetRandomSpawnLocation() const
     Offset.Y = FMath::Sin(RadAngle) * Distance;
     Offset.Z = 0.0f;  // Keep on ground level
 
-    return PlayerLocation + Offset;
+    FVector SpawnLocation = SpawnCenter + Offset;
+
+    CC_LOG_SPAWNER(VeryVerbose, TEXT("Spawn location: (%.0f, %.0f, %.0f)"),
+        SpawnLocation.X, SpawnLocation.Y, SpawnLocation.Z);
+
+    return SpawnLocation + Offset;
 }
 
 void ACC_EnemySpawner::CleanupDeadEnemies()
@@ -304,6 +342,45 @@ int32 ACC_EnemySpawner::GetAliveEnemyCount() const
 bool ACC_EnemySpawner::CanSpawnMore() const
 {
     return GetAliveEnemyCount() < MaxEnemies;
+}
+
+void ACC_EnemySpawner::Freeze_Implementation()
+{
+    if (bIsFrozen)
+    {
+        CC_LOG_SPAWNER(VeryVerbose, TEXT("Already frozen, ignoring"));
+        return;
+    }
+
+    // Stop spawning
+    StopSpawning();
+
+    bIsFrozen = true;
+
+    CC_LOG_SPAWNER(Log, TEXT("Spawner FROZEN (Alive enemies: %d)"), GetAliveEnemyCount());
+
+}
+
+void ACC_EnemySpawner::Unfreeze_Implementation()
+{
+    if (!bIsFrozen)
+    {
+        CC_LOG_SPAWNER(VeryVerbose, TEXT("Not frozen, ignoring"));
+        return;
+    }
+
+    bIsFrozen = false;
+
+    // Resume spawning
+    if (EnemyClass)
+    {
+        StartSpawning();
+        CC_LOG_SPAWNER(Log, TEXT("Spawner UNFROZEN (Resuming spawning)"));
+    }
+    else
+    {
+        CC_LOG_SPAWNER(Warning, TEXT("Cannot unfreeze - no enemy class set"));
+    }
 }
 
 void ACC_EnemySpawner::FindPlayer()

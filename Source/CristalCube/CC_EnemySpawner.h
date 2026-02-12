@@ -4,13 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "GamePlay/CC_Freezable.h"
 #include "CC_EnemySpawner.generated.h"
 
 class ACC_EnemyCharacter;
 class ACC_PlayerCharacter;
 
 UCLASS()
-class CRISTALCUBE_API ACC_EnemySpawner : public AActor
+class CRISTALCUBE_API ACC_EnemySpawner : public AActor, public ICC_Freezable
 {
 	GENERATED_BODY()
 	
@@ -98,6 +99,13 @@ protected:
     UPROPERTY()
     ACC_PlayerCharacter* CachedPlayer;
 
+    /** Owner Cube reference */
+    UPROPERTY()
+    class ACC_Cube* OwnerCube;
+
+    UPROPERTY()
+    bool bIsFrozen = false;
+
     //==========================================================================
 // SPAWNING
 //==========================================================================
@@ -142,6 +150,21 @@ protected:
     UFUNCTION(BlueprintPure, Category = "Spawner")
     ACC_PlayerCharacter* GetPlayer() const { return CachedPlayer; }
 
+    /** Set owner cube for spawn location */
+    UFUNCTION(BlueprintCallable, Category = "Spawner")
+    void SetOwnerCube(class ACC_Cube* Cube) { OwnerCube = Cube; }
+
+    /** Get owner cube */
+    UFUNCTION(BlueprintPure, Category = "Spawner")
+    class ACC_Cube* GetOwnerCube() const { return OwnerCube; }
+
+    //==========================================================================
+    // FREEZABLE INTERFACE
+    //==========================================================================
+
+    virtual void Freeze_Implementation() override;
+    virtual void Unfreeze_Implementation() override;
+    virtual bool IsFrozen_Implementation() const override { return bIsFrozen; }
 
 protected:
     //==========================================================================

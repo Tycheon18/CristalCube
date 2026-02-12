@@ -6,6 +6,7 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
+#include "../SkillSystem/CC_SkillSystem.h"
 #include "../Characters/CC_EnemyCharacter.h"
 
 // Sets default values
@@ -125,6 +126,13 @@ void ACC_Projectile::Tick(float DeltaTime)
 	//}
 }
 
+void ACC_Projectile::SetSkillData(UCC_SkillSystem* InSkillSystem, const FSkillDefinition& InSkill, const FSkillExecutionContext& InContext)
+{
+	SkillSystem = InSkillSystem;
+	CurrentSkill = InSkill;
+	ExecutionContext = InContext;
+}
+
 void ACC_Projectile::SetProjectileOwner(AActor* NewOwner)
 {
 	ProjectileOwner = NewOwner;
@@ -149,16 +157,10 @@ void ACC_Projectile::InitializeProjectile(float InDamage, float InSpeed)
 void ACC_Projectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (!OtherActor || OtherActor == this)
+	if (!OtherActor || OtherActor == this || OtherActor == ProjectileOwner)
 	{
 		return;
 	}
-
-	if (OtherActor == ProjectileOwner)
-	{
-		return;
-	}
-
 
 	if (!OtherActor->ActorHasTag(FName("Enemy")))
 	{
@@ -175,6 +177,15 @@ void ACC_Projectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AA
 		OtherActor->GetActorLocation() : FVector(SweepResult.ImpactPoint);
 	PlayHitEffects(HitLocation);
 	
+	if (SkillSystem)
+	{
+		FHitResult HitResult = SweepResult;
+		HitResult.ImpactPoint = HitLocation;
+		HitResult.GetActor() ? HitResult.GetActor() : OtherActor;
+
+		SkillSystem->ProcessAddons(CurrentSkill, ExecutionContext, HitResult);
+	}
+
 	if (bCanPierce && ShouldPierceThrough(OtherActor))
 	{
 		CurrentPierceCount++;
@@ -216,24 +227,27 @@ void ACC_Projectile::ApplyDamageToActor(AActor* HitActor)
 void ACC_Projectile::PlayHitEffects(const FVector& HitLocation)
 {
 	// Spawn hit particle effect
-	if (HitEffect)
-	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-			GetWorld(),
-			HitEffect,
-			HitLocation
-		);
-	}
+	//if (HitEffect)
+	//{
+	//	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+	//		GetWorld(),
+	//		HitEffect,
+	//		HitLocation
+	//	);
+	//}
 
 	// Play hit sound
-	if (HitSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(
-			GetWorld(),
-			HitSound,
-			HitLocation
-		);
-	}
+	//if (HitSound)
+	//{
+	//	UGameplayStatics::PlaySoundAtLocation(
+	//		GetWorld(),
+	//		HitSound,
+	//		HitLocation
+	//	);
+	//}
+
+	UE_LOG(LogTemp, Warning, TEXT("[HIT EFFECT] Would spawn at: %s"), *HitLocation.ToString());
+
 }
 
 bool ACC_Projectile::ShouldPierceThrough(AActor* HitActor)

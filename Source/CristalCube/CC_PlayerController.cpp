@@ -7,6 +7,7 @@
 #include "InputMappingContext.h"
 #include "InputAction.h"
 #include "Kismet/GameplayStatics.h"
+#include "SkillSystem/CC_SkillSystem.h"
 #include "Characters/CC_PlayerCharacter.h"
 
 
@@ -91,6 +92,9 @@ void ACC_PlayerController::SetupInputComponent()
         {
             EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, this, &ACC_PlayerController::HandleDash);
         }
+
+		InputComponent->BindAction("BeamCharge", IE_Pressed, this, &ACC_PlayerController::StartBeamCharge);
+		InputComponent->BindAction("BeamCharge", IE_Released, this, &ACC_PlayerController::ReleaseBeam);
 
         CC_LOG_PLAYER(Log, "Enhanced Input actions bound successfully");
     }
@@ -225,4 +229,69 @@ void ACC_PlayerController::SetMinMouseDistance(float NewDistance)
 {
     MinMouseDistance = FMath::Clamp(NewDistance, 10.0f, 200.0f);
 	CC_LOG_PLAYER(Log, "Min mouse distance set to: %.2f", MinMouseDistance);
+}
+
+void ACC_PlayerController::StartBeamCharge()
+{
+    FHitResult HitResult;
+    GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+    if (HitResult.bBlockingHit)
+    {
+        BeamStartLocation = HitResult.ImpactPoint;
+        bIsChargingBeam = true;
+
+        UE_LOG(LogTemp, Log, TEXT("Beam charge started at: %s"), *BeamStartLocation.ToString());
+
+        // 시각적 피드백 (선택 사항: 데칼, 파티클 등)
+        // SpawnDecalAtLocation(...);
+    }
+}
+
+void ACC_PlayerController::ReleaseBeam()
+{
+    if (!bIsChargingBeam)
+    {
+        return;
+    }
+
+    FHitResult HitResult;
+    GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+    if (HitResult.bBlockingHit)
+    {
+        FVector BeamEndLocation = HitResult.ImpactPoint;
+
+        // SkillSystem 가져오기
+        APawn* ControlledPawn = GetPawn();
+        if (ControlledPawn)
+        {
+            UCC_SkillSystem* SkillSystem = ControlledPawn->FindComponentByClass<UCC_SkillSystem>();
+            if (SkillSystem)
+            {
+                // Beam 스킬 정의 (DataTable에서 가져오거나 임시 생성)
+                FSkillDefinition BeamSkill;
+                BeamSkill.SkillID = FName("VectorLaser");
+                BeamSkill.CoreType = ESkillCoreType::Beam;
+                BeamSkill.BaseDamage = 50.0f;
+                BeamSkill.Range = 2000.0f;
+
+                // Context 설정
+                FSkillExecutionContext Context;
+                Context.Caster = ControlledPawn;
+                Context.StartLocation = BeamStartLocation;
+                Context.TargetLocation = BeamEndLocation;
+                Context.Direction = (BeamEndLocation - BeamStartLocation).GetSafeNormal();
+                Context.CurrentDamage = BeamSkill.BaseDamage;
+
+                // 실행!
+                SkillSystem->ExecuteSkill(BeamSkill, BeamEndLocation);
+
+                UE_LOG(LogTemp, Log, TEXT("Beam fired from %s to %s"),
+                    *BeamStartLocation.ToString(), *BeamEndLocation.ToString());
+            }
+        }
+    }
+
+    bIsChargingBeam = false;
 }

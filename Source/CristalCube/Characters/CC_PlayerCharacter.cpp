@@ -16,6 +16,7 @@
 #include "../Widgets/CC_GameHUD.h"
 #include "../Widgets/CC_LevelUpWidget.h"
 #include "../CC_TileTrackerComponent.h"
+#include "../SkillSystem/CC_SkillSystem.h"
 #include "CC_EnemyCharacter.h"
 
 
@@ -41,6 +42,8 @@ ACC_PlayerCharacter::ACC_PlayerCharacter()
 	SearchingComponent = CreateDefaultSubobject<UCC_SearchingComponent>(TEXT("SearchingComponent"));
 
 	TileTrackerComponent = CreateDefaultSubobject<UCC_TileTrackerComponent>(TEXT("TileTrackerComponent"));
+
+	SkillSystem = CreateDefaultSubobject<UCC_SkillSystem>(TEXT("SkillSystem"));
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -460,6 +463,283 @@ void ACC_PlayerCharacter::StopWeaponAutoAttack(ACC_Weapon* Weapon)
 		CC_LOG_PLAYER(VeryVerbose, "Stopped auto-attack for weapon");
 	}
 }
+
+void ACC_PlayerCharacter::TestBasicSkill()
+{
+}
+
+void ACC_PlayerCharacter::TestProjectileSkill()
+{
+	UCC_SkillSystem* TestSkillSystem = FindComponentByClass<UCC_SkillSystem>();
+	if (!TestSkillSystem)
+	{
+		return;
+	}
+
+	// 간단한 테스트 스킬 (VFX 없음)
+	FSkillDefinition TestSkill;
+	TestSkill.SkillID = FName("TestProj");
+	TestSkill.CoreType = ESkillCoreType::Projectile;
+	TestSkill.BaseDamage = 50.0f;
+	TestSkill.Range = 2000.0f;
+	TestSkill.Passives.ProjectileCount = 1;
+
+	// Addon 테스트
+	TestSkill.Addons.Add(ESkillAddonType::MultiShot);
+	TestSkill.Addons.Add(ESkillAddonType::Penetrate);
+	TestSkill.Passives.PierceCount = 3;
+
+	// VFX는 nullptr로 (안전)
+	TestSkill.CastEffect = nullptr;
+	TestSkill.HitEffect = nullptr;
+
+	// 마우스 방향으로 발사
+	FVector TargetLocation = GetActorLocation() + GetActorForwardVector() * 1000.0f;
+	SkillSystem->ExecuteSkill(TestSkill, TargetLocation);
+
+	UE_LOG(LogTemp, Warning, TEXT("Test skill fired!"));
+}
+
+void ACC_PlayerCharacter::CastFireball()
+{
+	if (!SkillSystem)
+	{
+		return;
+	}
+
+	// 화염구: 투사체 + 폭발
+	FSkillDefinition Fireball;
+	Fireball.SkillID = FName("Fireball");
+	Fireball.DisplayName = FText::FromString("Fireball");
+	Fireball.CoreType = ESkillCoreType::Projectile;
+	Fireball.BaseDamage = 40.0f;
+	Fireball.Range = 2000.0f;
+	Fireball.Cooldown = 1.5f;
+
+	// 폭발 효과
+	Fireball.Addons.Add(ESkillAddonType::Explosion);
+	Fireball.Passives.SizeMultiplier = 1.5f;  // 폭발 범위 증가
+	Fireball.Passives.ProjectileCount = 1;
+
+	// 원소: 화염
+	Fireball.ElementType = ESkillElementType::Fire;
+
+	FVector TargetLocation = GetActorLocation() + GetActorForwardVector() * 1000.0f;
+	SkillSystem->ExecuteSkill(Fireball, TargetLocation);
+
+	UE_LOG(LogTemp, Warning, TEXT("Fireball cast!"));
+}
+
+void ACC_PlayerCharacter::CastLightningBolt()
+{
+	if (!SkillSystem)
+	{
+		return;
+	}
+
+	// 번개: 즉발 + 연쇄
+	FSkillDefinition Lightning;
+	Lightning.SkillID = FName("Lightning");
+	Lightning.DisplayName = FText::FromString("Lightning Bolt");
+	Lightning.CoreType = ESkillCoreType::Instant;
+	Lightning.BaseDamage = 35.0f;
+	Lightning.Range = 1500.0f;
+	Lightning.Cooldown = 0.8f;
+
+	// 연쇄 효과 (최대 4번)
+	Lightning.Addons.Add(ESkillAddonType::Chain);
+	Lightning.Passives.ChainCount = 4;
+
+	// 원소: 번개
+	Lightning.ElementType = ESkillElementType::Lightning;
+
+	FVector TargetLocation = GetActorLocation() + GetActorForwardVector() * 1000.0f;
+	SkillSystem->ExecuteSkill(Lightning, TargetLocation);
+
+	UE_LOG(LogTemp, Warning, TEXT("Lightning Bolt cast!"));
+}
+
+void ACC_PlayerCharacter::CastIceShard()
+{
+	if (!SkillSystem)
+	{
+		return;
+	}
+
+	// 얼음 파편: 투사체 + 멀티샷
+	FSkillDefinition IceShard;
+	IceShard.SkillID = FName("IceShard");
+	IceShard.DisplayName = FText::FromString("Ice Shard");
+	IceShard.CoreType = ESkillCoreType::Projectile;
+	IceShard.BaseDamage = 20.0f;
+	IceShard.Range = 1800.0f;
+	IceShard.Cooldown = 0.5f;
+
+	// 멀티샷 (3발 → 5발)
+	IceShard.Addons.Add(ESkillAddonType::MultiShot);
+	IceShard.Passives.ProjectileCount = 3;
+	IceShard.Passives.SpeedMultiplier = 1.2f;
+
+	// 원소: 얼음
+	IceShard.ElementType = ESkillElementType::Ice;
+
+	FVector TargetLocation = GetActorLocation() + GetActorForwardVector() * 1000.0f;
+	SkillSystem->ExecuteSkill(IceShard, TargetLocation);
+
+	UE_LOG(LogTemp, Warning, TEXT("Ice Shard cast!"));
+}
+
+void ACC_PlayerCharacter::CastPoisonNova()
+{
+	if (!SkillSystem)
+	{
+		return;
+	}
+
+	// 독 폭발: 범위 공격
+	FSkillDefinition PoisonNova;
+	PoisonNova.SkillID = FName("PoisonNova");
+	PoisonNova.DisplayName = FText::FromString("Poison Nova");
+	PoisonNova.CoreType = ESkillCoreType::Area;
+	PoisonNova.BaseDamage = 30.0f;
+	PoisonNova.Range = 400.0f;  // 반경
+	PoisonNova.Cooldown = 3.0f;
+
+	// 범위 증가
+	PoisonNova.Passives.SizeMultiplier = 2.0f;
+
+	// 원소: 독
+	PoisonNova.ElementType = ESkillElementType::Poison;
+
+	// 플레이어 위치에서 발동
+	FVector TargetLocation = GetActorLocation();
+	SkillSystem->ExecuteSkill(PoisonNova, TargetLocation);
+
+	UE_LOG(LogTemp, Warning, TEXT("Poison Nova cast!"));
+}
+
+void ACC_PlayerCharacter::CastPiercingArrow()
+{
+	if (!SkillSystem)
+	{
+		return;
+	}
+
+	// 관통 화살: 투사체 + 관통
+	FSkillDefinition Arrow;
+	Arrow.SkillID = FName("PiercingArrow");
+	Arrow.DisplayName = FText::FromString("Piercing Arrow");
+	Arrow.CoreType = ESkillCoreType::Projectile;
+	Arrow.BaseDamage = 45.0f;
+	Arrow.Range = 2500.0f;
+	Arrow.Cooldown = 1.0f;
+
+	// 관통 (5명)
+	Arrow.Addons.Add(ESkillAddonType::Penetrate);
+	Arrow.Passives.PierceCount = 5;
+	Arrow.Passives.SpeedMultiplier = 1.5f;
+
+	// 원소: 물리
+	Arrow.ElementType = ESkillElementType::Physical;
+
+	FVector TargetLocation = GetActorLocation() + GetActorForwardVector() * 1000.0f;
+	SkillSystem->ExecuteSkill(Arrow, TargetLocation);
+
+	UE_LOG(LogTemp, Warning, TEXT("Piercing Arrow cast!"));
+}
+
+void ACC_PlayerCharacter::StartVectorLaser()
+{
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		return;
+	}
+
+	// 마우스 커서 위치를 월드 좌표로 변환
+	FHitResult HitResult;
+	PC->GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+	if (HitResult.bBlockingHit)
+	{
+		LaserStartPoint = HitResult.ImpactPoint;
+		bIsChargingLaser = true;
+
+		// 시작점 시각 피드백
+		if (GetWorld())
+		{
+			DrawDebugSphere(
+				GetWorld(),
+				LaserStartPoint,
+				50.0f,
+				16,
+				FColor::Cyan,
+				false,
+				5.0f,
+				0,
+				3.0f
+			);
+		}
+
+		UE_LOG(LogTemp, Log, TEXT("Laser charging at: %s"), *LaserStartPoint.ToString());
+	}
+}
+
+void ACC_PlayerCharacter::ReleaseVectorLaser()
+{
+	if (!bIsChargingLaser || !SkillSystem)
+	{
+		return;
+	}
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		return;
+	}
+
+	// 마우스 릴리즈 위치
+	FHitResult HitResult;
+	PC->GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
+
+	if (HitResult.bBlockingHit)
+	{
+		FVector LaserEndPoint = HitResult.ImpactPoint;
+
+		// 벡터 레이저: Beam Core
+		FSkillDefinition VectorLaser;
+		VectorLaser.SkillID = FName("VectorLaser");
+		VectorLaser.DisplayName = FText::FromString("Vector Laser");
+		VectorLaser.CoreType = ESkillCoreType::Beam;
+		VectorLaser.BaseDamage = 60.0f;
+		VectorLaser.Range = 3000.0f;
+		VectorLaser.Cooldown = 2.0f;
+
+		// 관통 추가
+		VectorLaser.Addons.Add(ESkillAddonType::Penetrate);
+		VectorLaser.Passives.PierceCount = 10;
+
+		// 원소: 번개
+		VectorLaser.ElementType = ESkillElementType::Lightning;
+
+		// Context 설정 (시작점 → 끝점)
+		FSkillExecutionContext Context;
+		Context.Caster = this;
+		Context.StartLocation = LaserStartPoint;
+		Context.TargetLocation = LaserEndPoint;
+		Context.Direction = (LaserEndPoint - LaserStartPoint).GetSafeNormal();
+		Context.CurrentDamage = VectorLaser.BaseDamage;
+
+		// 실행!
+		SkillSystem->ExecuteSkill(VectorLaser, LaserEndPoint);
+
+		UE_LOG(LogTemp, Warning, TEXT("Vector Laser fired from %s to %s"),
+			*LaserStartPoint.ToString(), *LaserEndPoint.ToString());
+	}
+
+	bIsChargingLaser = false;
+}
+
 
 void ACC_PlayerCharacter::LevelUp()
 {

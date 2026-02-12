@@ -297,6 +297,8 @@ void ACC_Cube::InitializeCube(FIntPoint Coordinate)
 	CubeCoordinate = Coordinate;
 	CubeState = ECubeState::Active;
 
+	UE_LOG(LogTemp, Log, TEXT("[Cube] Initializing at CubeSize is :(%f)"), CubeSize);
+
 	// 큐브 위치 설정 (월드 좌표)
 	FVector CubeWorldLocation(
 		-Coordinate.X * CubeSize,
@@ -314,8 +316,9 @@ void ACC_Cube::InitializeCube(FIntPoint Coordinate)
 	// 경계 트리거 생성
 	CreateBoundaryTriggers();
 
-	UE_LOG(LogTemp, Log, TEXT("[Cube] Initialized at (%d, %d) - Location: %s"),
-		Coordinate.X, Coordinate.Y, *CubeWorldLocation.ToString());
+	//DrawDebugInfo();
+
+	//UE_LOG(LogTemp, Log, TEXT("[Cube] Initialized at (%d, %d) - Location: %s"), Coordinate.X, Coordinate.Y, *CubeWorldLocation.ToString());
 }
 
 void ACC_Cube::CreateBoundaryTriggers()
@@ -591,11 +594,41 @@ void ACC_Cube::DrawDebugInfo()
 	FBox Bounds = GetCubeBounds();
 	FColor Color = (CubeState == ECubeState::Active) ? FColor::Green : FColor::Red;
 
-	DrawDebugBox(GetWorld(), Bounds.GetCenter(), Bounds.GetExtent(),
-		Color, false, -1.0f, 0, 50.0f);
+	//DrawDebugBox(GetWorld(), Bounds.GetCenter(), Bounds.GetExtent(),
+	//	Color, false, -1.0f, 0, 50.0f);
 
 	// 좌표 텍스트
 	FString CoordText = FString::Printf(TEXT("Cube [%d, %d]"), CubeCoordinate.X, CubeCoordinate.Y);
 	DrawDebugString(GetWorld(), GetCubeCenter() + FVector(0, 0, 500),
 		CoordText, nullptr, Color, -1.0f, true, 2.0f);
+
+	for (UBoxComponent* Trigger : BoundaryTriggers)
+	{
+		if (!Trigger)
+			continue;
+
+		// Trigger의 월드 위치와 크기
+		FVector TriggerLocation = Trigger->GetComponentLocation();
+		FVector TriggerExtent = Trigger->GetScaledBoxExtent();
+		FRotator TriggerRotation = Trigger->GetComponentRotation();
+
+		// Trigger 색상 (ShapeColor 사용)
+		FColor TriggerColor = Trigger->ShapeColor;
+
+		// Trigger 박스 그리기 (회전 적용)
+		DrawDebugBox(GetWorld(), TriggerLocation, TriggerExtent, TriggerRotation.Quaternion(),
+			TriggerColor, false, 10.0f, 0, 5.0f);
+
+		// Trigger 방향 텍스트
+		EBoundaryDirection* Direction = BoundaryDirectionMap.Find(Trigger);
+		if (Direction)
+		{
+			FString DirectionText = UEnum::GetValueAsString(*Direction);
+			// "EBoundaryDirection::Right" -> "Right"만 추출
+			DirectionText.RemoveFromStart(TEXT("EBoundaryDirection::"));
+
+			DrawDebugString(GetWorld(), TriggerLocation,
+				DirectionText, nullptr, TriggerColor, -1.0f, true, 1.5f);
+		}
+	}
 }

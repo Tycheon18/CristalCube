@@ -73,7 +73,7 @@ void ACC_CubeWorldManager::InitializeCubeGrid()
 			CubeGrid.Add(FIntPoint(X, Y), NewCubeData);
 		}
 	}
-	
+
 	UE_LOG(LogTemp, Log, TEXT("[Manager] Initialized %d cube data entries"), CubeGrid.Num());
 }
 
@@ -87,7 +87,7 @@ ACC_Cube* ACC_CubeWorldManager::SpawnCube(FIntPoint Coordinate)
 		return ExistingCube;
 	}
 
-	// Å¥ºê Å¬·¡½º È®ÀÎ
+	// Å¥ï¿½ï¿½ Å¬ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½
 	if (!CubeClass)
 	{
 		UE_LOG(LogTemp, Error, TEXT("[Manager] CubeClass is not set!"));
@@ -103,10 +103,12 @@ ACC_Cube* ACC_CubeWorldManager::SpawnCube(FIntPoint Coordinate)
 
 	if (NewCube)
 	{
+		NewCube->CubeSize = CubeSize;
 		NewCube->InitializeCube(Coordinate);
+		
 		LoadedCubes.Add(NewCube);
 
-		// µ¥ÀÌÅÍ ¾÷µ¥ÀÌÆ®
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®
 		if (CubeGrid.Contains(Coordinate))
 		{
 			CubeGrid[Coordinate].State = ECubeState::Active;
@@ -178,10 +180,10 @@ void ACC_CubeWorldManager::RequestTransition(EBoundaryDirection Direction)
 	bIsTransitioning = true;
 	LastTransitionDirection = Direction;
 
-	// ´ÙÀ½ Å¥ºê ÁÂÇ¥ °è»ê
+	// ï¿½ï¿½ï¿½ï¿½ Å¥ï¿½ï¿½ ï¿½ï¿½Ç¥ ï¿½ï¿½ï¿½
 	FIntPoint NextCoord = GetNextCubeCoord(CurrentCubeCoord, Direction);
 
-	// Áï½Ã ÀüÈ¯ (Fade ¾øÀÌ)
+	// ï¿½ï¿½ï¿½ ï¿½ï¿½È¯ (Fade ï¿½ï¿½ï¿½ï¿½)
 	PerformTransition(NextCoord);
 
 	bIsTransitioning = false;
@@ -222,13 +224,13 @@ void ACC_CubeWorldManager::PerformTransition(FIntPoint NextCoord)
 {
 	UE_LOG(LogTemp, Log, TEXT("[Manager] Performing transition to (%d, %d)"), NextCoord.X, NextCoord.Y);
 
-	// 1. ÇöÀç Å¥ºê Freeze
+	// 1. ï¿½ï¿½ï¿½ï¿½ Å¥ï¿½ï¿½ Freeze
 	if (ActiveCube)
 	{
 		ActiveCube->Freeze();
 	}
 
-	// 2. »õ Å¥ºê Spawn ¶Ç´Â Ã£±â
+	// 2. ï¿½ï¿½ Å¥ï¿½ï¿½ Spawn ï¿½Ç´ï¿½ Ã£ï¿½ï¿½
 	ACC_Cube* NextCube = FindOrSpawnCube(NextCoord);
 	if (!NextCube)
 	{
@@ -236,10 +238,10 @@ void ACC_CubeWorldManager::PerformTransition(FIntPoint NextCoord)
 		return;
 	}
 
-	// 3. »õ Å¥ºê Unfreeze
+	// 3. ï¿½ï¿½ Å¥ï¿½ï¿½ Unfreeze
 	NextCube->Unfreeze();
 
-	// 4. ÇÃ·¹ÀÌ¾î ÀÌµ¿
+	// 4. ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½Ìµï¿½
 	FVector NewPlayerPos = CalculatePlayerPositionInCube(NextCube, LastTransitionDirection);
 	ACharacter* Player = GetPlayerCharacter();
 	if (Player)
@@ -248,11 +250,11 @@ void ACC_CubeWorldManager::PerformTransition(FIntPoint NextCoord)
 		UE_LOG(LogTemp, Log, TEXT("[Manager] Player moved to: %s"), *NewPlayerPos.ToString());
 	}
 
-	// 5. Active Å¥ºê ±³Ã¼
+	// 5. Active Å¥ï¿½ï¿½ ï¿½ï¿½Ã¼
 	ActiveCube = NextCube;
 	CurrentCubeCoord = NextCoord;
 
-	// 6. ÀÌº¥Æ® ¹ß»ý
+	// 6. ï¿½Ìºï¿½Æ® ï¿½ß»ï¿½
 	OnCubeTransition.Broadcast(NextCoord);
 
 	UE_LOG(LogTemp, Log, TEXT("[Manager] Transition performed successfully"));
@@ -264,22 +266,22 @@ FVector ACC_CubeWorldManager::CalculatePlayerPositionInCube(ACC_Cube* TargetCube
 		return FVector::ZeroVector;
 
 	FVector CubeCenter = TargetCube->GetCubeCenter();
-	float Offset = (CubeSize / 2.0f) - 500.0f; // °æ°è¿¡¼­ ¾à°£ ¾ÈÂÊ
+	float Offset = (CubeSize / 2.0f) - 500.0f; // ï¿½ï¿½è¿¡ï¿½ï¿½ ï¿½à°£ ï¿½ï¿½ï¿½ï¿½
 
-	// ¹Ý´ëÆí¿¡¼­ µîÀå
+	// ï¿½Ý´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	switch (FromDirection)
 	{
 	case EBoundaryDirection::Right:
-		return CubeCenter + FVector(0, Offset, 200); // ¿ÞÂÊ¿¡¼­ µîÀå
+		return CubeCenter + FVector(0, Offset, 200); // ï¿½ï¿½ï¿½Ê¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
 	case EBoundaryDirection::Left:
-		return CubeCenter + FVector(0, -Offset, 200); // ¿À¸¥ÂÊ¿¡¼­ µîÀå
+		return CubeCenter + FVector(0, -Offset, 200); // ï¿½ï¿½ï¿½ï¿½ï¿½Ê¿ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
 	case EBoundaryDirection::Up:
-		return CubeCenter + FVector(Offset, 0, 200); // ¾Æ·¡¿¡¼­ µîÀå
+		return CubeCenter + FVector(Offset, 0, 200); // ï¿½Æ·ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
 	case EBoundaryDirection::Down:
-		return CubeCenter + FVector(-Offset, 0, 200); // À§¿¡¼­ µîÀå
+		return CubeCenter + FVector(-Offset, 0, 200); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	}
 
 	return CubeCenter;
@@ -332,10 +334,13 @@ void ACC_CubeWorldManager::PrintDebugInfo()
 
 void ACC_CubeWorldManager::DrawAllCubes()
 {
+	UE_LOG(LogTemp, Log, TEXT("[Manager] Drawing debug info for all loaded cubes..."));
+
 	for (ACC_Cube* Cube : LoadedCubes)
 	{
 		if (Cube)
 		{
+			UE_LOG(LogTemp, Log, TEXT("[Manager] Drawing debug info for cube (%d, %d)"), Cube->CubeCoordinate.X, Cube->CubeCoordinate.Y);
 			Cube->DrawDebugInfo();
 		}
 	}

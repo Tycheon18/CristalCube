@@ -397,3 +397,4 @@ Thumbs.db
 # Note: Consider using Git LFS for large binary files if repo size becomes an issue
 # Git LFS setup: git lfs track "*.uasset" && git lfs track "*.umap"
 필독.txt
+Documentation/

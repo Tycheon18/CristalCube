@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "NiagaraSystem.h"
+#include "../CristalCubeStruct.h"
 #include "CC_Projectile.generated.h"
 
 UCLASS()
@@ -24,7 +25,6 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-
 protected:
 	// Collision sphere
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -41,8 +41,31 @@ protected:
 protected:
 
 	//==========================================================================
-// PROJECTILE PROPERTIES
-//==========================================================================
+	// Skill System Reference
+	//==========================================================================
+
+	UPROPERTY()
+	class UCC_SkillSystem* SkillSystem;
+
+	// Current skill definition (for Addon checks)
+	FSkillDefinition CurrentSkill;
+
+	// Execution context (for Addon processing)
+	FSkillExecutionContext ExecutionContext;
+
+public:
+
+	// Set skill data for Addon processing
+	UFUNCTION(BlueprintCallable, Category = "Projectile")
+	void SetSkillData(UCC_SkillSystem* InSkillSystem,
+		const FSkillDefinition& InSkill,
+		const FSkillExecutionContext& InContext);
+
+protected:
+
+	//==========================================================================
+	// PROJECTILE PROPERTIES
+	//==========================================================================
 
 
 	// Base damage dealt on hit
@@ -61,6 +84,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Behavior")
 	bool bDestroyOnHit;
 
+public:
+
 	// Can pierce through enemies?
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Behavior")
 	bool bCanPierce;
@@ -68,6 +93,8 @@ protected:
 	// Number of enemies to pierce through (if bCanPierce is true)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Behavior")
 	int32 PierceCount;
+
+protected:
 
 	// Current pierce count
 	UPROPERTY()
@@ -78,8 +105,8 @@ protected:
 protected:
 
 	//==========================================================================
-// EFFECTS
-//==========================================================================
+	// EFFECTS
+	//==========================================================================
 
 	// Hit effect (spawned on impact)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile|Effects")
@@ -91,8 +118,8 @@ protected:
 
 protected:
 	//==========================================================================
-// OWNERSHIP & TARGETING
-//==========================================================================
+	// OWNERSHIP & TARGETING
+	//==========================================================================
 
 
 	// Who fired this projectile
@@ -111,8 +138,8 @@ public:
 
 protected:
 	//==========================================================================
-// COLLISION & DAMAGE
-//==========================================================================
+	// COLLISION & DAMAGE
+	//==========================================================================
 
 	UFUNCTION(BlueprintCallable)
 	void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,

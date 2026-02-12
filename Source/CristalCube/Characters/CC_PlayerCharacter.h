@@ -61,10 +61,10 @@ protected:
 protected:
 
 	//==============================================================================
-// WEAPON SYSTEM
-//==============================================================================
+	// WEAPON SYSTEM
+	//==============================================================================
 
-// Current equipped weapons
+	// Current equipped weapons
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapons|Data")
 	UDataTable* WeaponDataTable;
@@ -158,6 +158,56 @@ public:
 	/** Check if specific weapon is equipped */
 	UFUNCTION(BlueprintPure, Category = "Player|Weapons")
 	bool HasWeapon(ACC_Weapon* Weapon) const { return EquippedWeapons.Contains(Weapon); }
+
+protected:
+	
+	//==============================================================================
+	// Skill System Component
+	//==============================================================================
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class UCC_SkillSystem* SkillSystem;
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Test")
+	void TestBasicSkill();
+
+	UFUNCTION(BlueprintCallable, Category = "Test")
+	void TestProjectileSkill();
+
+public:
+
+	//==============================================================================
+	// Test Skill System - 테스트용이므로 추후 제거
+	//==============================================================================
+
+	UFUNCTION(BlueprintCallable, Category = "Skills")
+	void CastFireball();           // 화염구 - 투사체 + 폭발
+
+	UFUNCTION(BlueprintCallable, Category = "Skills")
+	void CastLightningBolt();      // 번개 - 즉발 + 연쇄
+
+	UFUNCTION(BlueprintCallable, Category = "Skills")
+	void CastIceShard();           // 얼음 파편 - 투사체 + 멀티샷
+
+	UFUNCTION(BlueprintCallable, Category = "Skills")
+	void CastPoisonNova();         // 독 폭발 - 범위 공격
+
+	UFUNCTION(BlueprintCallable, Category = "Skills")
+	void CastPiercingArrow();      // 관통 화살 - 투사체 + 관통
+
+	// === 벡터 레이저 (마우스 드래그) ===
+	UFUNCTION(BlueprintCallable, Category = "Skills")
+	void StartVectorLaser();       // 레이저 시작점 기록
+
+	UFUNCTION(BlueprintCallable, Category = "Skills")
+	void ReleaseVectorLaser();     // 레이저 발사
+
+protected:
+	
+	bool bIsChargingLaser;
+	FVector LaserStartPoint;
 
 protected:
 

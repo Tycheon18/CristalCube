@@ -103,4 +103,19 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	void SetMinMouseDistance(float NewDistance);
+
+protected:
+
+	UPROPERTY()
+	bool bIsChargingBeam = false;
+
+	UPROPERTY()
+	FVector BeamStartLocation;
+
+	UFUNCTION()
+	void StartBeamCharge();
+
+	UFUNCTION()
+	void ReleaseBeam();
+
 };

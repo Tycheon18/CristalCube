@@ -28,23 +28,23 @@ public:
     // Properties
     // ========================================
 
-    /** ±×¸®µå Å©±â (3x3) */
+    /** ï¿½×¸ï¿½ï¿½ï¿½ Å©ï¿½ï¿½ (3x3) */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cube|Grid")
     int32 GridSize = 3;
 
-    /** Å¥ºê Å©±â */
+    /** Å¥ï¿½ï¿½ Å©ï¿½ï¿½ */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cube|Grid")
     float CubeSize = 500.0f;
 
-    /** Å¥ºê Å¬·¡½º */
+    /** Å¥ï¿½ï¿½ Å¬ï¿½ï¿½ï¿½ï¿½ */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cube|Grid")
     TSubclassOf<class ACC_Cube> CubeClass;
 
-    /** ÇöÀç Å¥ºê ÁÂÇ¥ */
+    /** ï¿½ï¿½ï¿½ï¿½ Å¥ï¿½ï¿½ ï¿½ï¿½Ç¥ */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cube|State")
     FIntPoint CurrentCubeCoord;
 
-    /** ÀüÈ¯ ÁßÀÎÁö ¿©ºÎ */
+    /** ï¿½ï¿½È¯ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cube|State")
     bool bIsTransitioning = false;
 
@@ -52,15 +52,15 @@ public:
     // Data Structures
     // ========================================
 
-    /** Å¥ºê µ¥ÀÌÅÍ ±×¸®µå (9°³) */
+    /** Å¥ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½×¸ï¿½ï¿½ï¿½ (9ï¿½ï¿½) */
     UPROPERTY()
     TMap<FIntPoint, FCubeData> CubeGrid;
 
-    /** ÇöÀç Active Å¥ºê */
+    /** ï¿½ï¿½ï¿½ï¿½ Active Å¥ï¿½ï¿½ */
     UPROPERTY()
     ACC_Cube* ActiveCube;
 
-    /** SpawnµÈ Å¥ºêµé */
+    /** Spawnï¿½ï¿½ Å¥ï¿½ï¿½ï¿½ */
     UPROPERTY()
     TArray<ACC_Cube*> LoadedCubes;
 
@@ -68,30 +68,30 @@ public:
     // Initialization
     // ========================================
 
-    /** ½Ã½ºÅÛ ÃÊ±âÈ­ */
+    /** ï¿½Ã½ï¿½ï¿½ï¿½ ï¿½Ê±ï¿½È­ */
     UFUNCTION(BlueprintCallable, Category = "Cube")
     void InitializeSystem();
 
-    /** Å¥ºê ±×¸®µå µ¥ÀÌÅÍ »ý¼º */
+    /** Å¥ï¿½ï¿½ ï¿½×¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ */
     void InitializeCubeGrid();
 
     // ========================================
     // Cube Management
     // ========================================
 
-    /** Å¥ºê Spawn */
+    /** Å¥ï¿½ï¿½ Spawn */
     UFUNCTION(BlueprintCallable, Category = "Cube")
     ACC_Cube* SpawnCube(FIntPoint Coordinate);
 
-    /** Å¥ºê Despawn (¸Þ¸ð¸® Àý¾à¿ë, ³ªÁß¿¡ ±¸Çö) */
+    /** Å¥ï¿½ï¿½ Despawn (ï¿½Þ¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ß¿ï¿½ ï¿½ï¿½ï¿½ï¿½) */
     UFUNCTION(BlueprintCallable, Category = "Cube")
     void DespawnCube(FIntPoint Coordinate);
 
-    /** Å¥ºê Ã£±â ¶Ç´Â Spawn */
+    /** Å¥ï¿½ï¿½ Ã£ï¿½ï¿½ ï¿½Ç´ï¿½ Spawn */
     UFUNCTION(BlueprintCallable, Category = "Cube")
     ACC_Cube* FindOrSpawnCube(FIntPoint Coordinate);
 
-    /** Å¥ºê Ã£±â */
+    /** Å¥ï¿½ï¿½ Ã£ï¿½ï¿½ */
     UFUNCTION(BlueprintCallable, Category = "Cube")
     ACC_Cube* FindCube(FIntPoint Coordinate) const;
 
@@ -99,29 +99,29 @@ public:
     // Transition System
     // ========================================
 
-    /** Å¥ºê ÀüÈ¯ ¿äÃ» */
+    /** Å¥ï¿½ï¿½ ï¿½ï¿½È¯ ï¿½ï¿½Ã» */
     UFUNCTION(BlueprintCallable, Category = "Cube|Transition")
     void RequestTransition(EBoundaryDirection Direction);
 
-    /** ´ÙÀ½ Å¥ºê ÁÂÇ¥ °è»ê (¼øÈ¯ °í·Á) */
+    /** ï¿½ï¿½ï¿½ï¿½ Å¥ï¿½ï¿½ ï¿½ï¿½Ç¥ ï¿½ï¿½ï¿½ (ï¿½ï¿½È¯ ï¿½ï¿½ï¿½ï¿½) */
     UFUNCTION(BlueprintCallable, Category = "Cube|Transition")
     FIntPoint GetNextCubeCoord(FIntPoint Current, EBoundaryDirection Direction) const;
 
-    /** ÀüÈ¯ ½ÇÇà (¾ÏÀü Áß È£Ãâ) */
+    /** ï¿½ï¿½È¯ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ È£ï¿½ï¿½) */
     void PerformTransition(FIntPoint NextCoord);
 
-    /** ÇÃ·¹ÀÌ¾î À§Ä¡ °è»ê (ÀüÈ¯ ½Ã) */
+    /** ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½ (ï¿½ï¿½È¯ ï¿½ï¿½) */
     FVector CalculatePlayerPositionInCube(ACC_Cube* TargetCube, EBoundaryDirection FromDirection) const;
 
     // ========================================
     // Player Management
     // ========================================
 
-    /** ÇÃ·¹ÀÌ¾î ÂüÁ¶ °¡Á®¿À±â */
+    /** ï¿½Ã·ï¿½ï¿½Ì¾ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
     UFUNCTION(BlueprintCallable, Category = "Cube")
     ACharacter* GetPlayerCharacter() const;
 
-    /** ÇÃ·¹ÀÌ¾î¸¦ Å¥ºê·Î ÀÌµ¿ */
+    /** ï¿½Ã·ï¿½ï¿½Ì¾î¸¦ Å¥ï¿½ï¿½ï¿½ ï¿½Ìµï¿½ */
     UFUNCTION(BlueprintCallable, Category = "Cube")
     void MovePlayerToCube(FIntPoint Coordinate);
 
@@ -129,7 +129,7 @@ public:
     // Events
     // ========================================
 
-    /** Å¥ºê ÀüÈ¯ ¿Ï·á ÀÌº¥Æ® */
+    /** Å¥ï¿½ï¿½ ï¿½ï¿½È¯ ï¿½Ï·ï¿½ ï¿½Ìºï¿½Æ® */
     UPROPERTY(BlueprintAssignable, Category = "Cube|Events")
     FOnCubeTransition OnCubeTransition;
 
@@ -137,20 +137,20 @@ public:
     // Debug
     // ========================================
 
-    /** µð¹ö±× Á¤º¸ Ãâ·Â */
+    /** ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ */
     UFUNCTION(BlueprintCallable, Category = "Cube|Debug")
     void PrintDebugInfo();
 
-    /** ¸ðµç Å¥ºê Draw */
+    /** ï¿½ï¿½ï¿½ Å¥ï¿½ï¿½ Draw */
     UFUNCTION(BlueprintCallable, Category = "Cube|Debug")
     void DrawAllCubes();
 
-    /** ÀÚµ¿ Å×½ºÆ® ¸ðµå */
+    /** ï¿½Úµï¿½ ï¿½×½ï¿½Æ® ï¿½ï¿½ï¿½ */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cube|Debug")
     bool bAutoTest = false;
 
 protected:
 
-    /** ÀÌÀü ÀüÈ¯ ¹æÇâ (Å×½ºÆ®¿ë) */
+    /** ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¯ ï¿½ï¿½ï¿½ï¿½ (ï¿½×½ï¿½Æ®ï¿½ï¿½) */
     EBoundaryDirection LastTransitionDirection;
 };

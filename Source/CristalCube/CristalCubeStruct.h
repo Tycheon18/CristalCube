@@ -10,6 +10,8 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnFadeComplete);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCubeTransition, FIntPoint, NewCoordinate);
 
+class UNiagaraSystem;
+
 //==============================================================================
 // UPGRADE SYSTEM (Simplified DataTable Approach)
 //==============================================================================
@@ -58,9 +60,9 @@ enum class EBoundaryDirection : uint8
 UENUM(BlueprintType)
 enum class ECubeState : uint8
 {
-    Active UMETA(DisplayName = "Active"),      // ÇöÀç È°¼º Å¥ºê
-    Frozen UMETA(DisplayName = "Frozen"),      // ºñÈ°¼º (½Ã°£ Á¤Áö)
-    Unloaded UMETA(DisplayName = "Unloaded")   // ¸Ş¸ğ¸®¿¡ ¾øÀ½
+    Active UMETA(DisplayName = "Active"),      // ï¿½ï¿½ï¿½ï¿½ È°ï¿½ï¿½ Å¥ï¿½ï¿½
+    Frozen UMETA(DisplayName = "Frozen"),      // ï¿½ï¿½È°ï¿½ï¿½ (ï¿½Ã°ï¿½ ï¿½ï¿½ï¿½ï¿½)
+    Unloaded UMETA(DisplayName = "Unloaded")   // ï¿½Ş¸ğ¸®¿ï¿½ ï¿½ï¿½ï¿½ï¿½
 };
 
 //==============================================================================
@@ -92,7 +94,7 @@ public:
     float Value;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Requirements")
-    int32 Weight;                   // ÃâÇö È®·ü °¡ÁßÄ¡
+    int32 Weight;                   // ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ä¡
 };
 
 //==============================================================================
@@ -119,6 +121,207 @@ enum class ETargetingMode : uint8
     Area       UMETA(DisplayName = "Area(All in Range)"),
     Self       UMETA(DisplayName = "Self")
 };
+
+/// <Skill System>
+/// ìƒˆë¡œ ì‘ì„±ëœ ëª¨ë“ˆí˜• ìŠ¤í‚¬ ì‹œìŠ¤í…œ êµ¬ì¡°ì²´, í”„ë¡œí† íƒ€ì… ë²„ì „
+
+//==============================================================================
+// MODULAR SKILL SYSTEM (Week 9 - Simplified Prototype)
+//==============================================================================
+
+// Forward declarations
+class UNiagaraSystem;
+
+//------------------------------------------------------------------------------
+// Core Types - ìŠ¤í‚¬ì˜ ê¸°ë³¸ í˜•íƒœ (3ê°œë§Œ)
+//------------------------------------------------------------------------------
+UENUM(BlueprintType)
+enum class ESkillCoreType : uint8
+{
+    None            UMETA(DisplayName = "None"),
+    Projectile      UMETA(DisplayName = "Projectile"),     // íˆ¬ì‚¬ì²´ (ë‚ ì•„ê°)
+    Instant         UMETA(DisplayName = "Instant"),        // ì¦‰ë°œ (íˆíŠ¸ìŠ¤ìº”)
+    Area            UMETA(DisplayName = "Area"),           // ë²”ìœ„ (ë°”ë‹¥/ê³µê°„)
+    Beam            UMETA(DisplayName = "Beam")            // ë ˆì´ì € 
+};
+
+//------------------------------------------------------------------------------
+// Addon Types - ì¶”ê°€ íš¨ê³¼ (4ê°œë§Œ)
+//------------------------------------------------------------------------------
+UENUM(BlueprintType)
+enum class ESkillAddonType : uint8
+{
+    None            UMETA(DisplayName = "None"),
+    Explosion       UMETA(DisplayName = "Explosion"),      // ì¶©ëŒ ì‹œ í­ë°œ
+    Chain           UMETA(DisplayName = "Chain"),          // ë‹¤ìŒ ì ìœ¼ë¡œ ì—°ì‡„
+    Penetrate       UMETA(DisplayName = "Penetrate"),      // ê´€í†µ
+    MultiShot       UMETA(DisplayName = "MultiShot")       // ë‹¤ì¤‘ ë°œì‚¬
+};
+
+//------------------------------------------------------------------------------
+// Element Types - ì›ì†Œ ì†ì„±
+//------------------------------------------------------------------------------
+UENUM(BlueprintType)
+enum class ESkillElementType : uint8
+{
+    None            UMETA(DisplayName = "None"),
+    Physical        UMETA(DisplayName = "Physical"),       // ë¬¼ë¦¬
+    Fire            UMETA(DisplayName = "Fire"),           // í™”ì—¼
+    Ice             UMETA(DisplayName = "Ice"),            // ì–¼ìŒ
+    Lightning       UMETA(DisplayName = "Lightning"),      // ë²ˆê°œ
+    Poison          UMETA(DisplayName = "Poison")          // ë…
+};
+
+//------------------------------------------------------------------------------
+// Passive Properties - ìˆ˜ì¹˜ ê°•í™”
+//------------------------------------------------------------------------------
+USTRUCT(BlueprintType)
+struct FSkillPassiveProperties
+{
+    GENERATED_BODY()
+
+    // ë°°ìœ¨ (ê³±ì…ˆ)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passive|Multipliers")
+    float DamageMultiplier = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passive|Multipliers")
+    float SizeMultiplier = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passive|Multipliers")
+    float SpeedMultiplier = 1.0f;
+
+    // ê°€ì‚° (ë§ì…ˆ)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passive|Counts")
+    int32 PierceCount = 0;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passive|Counts")
+    int32 ChainCount = 0;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passive|Counts")
+    int32 ProjectileCount = 1;
+};
+
+//------------------------------------------------------------------------------
+// Skill Definition - ì™„ì „í•œ ìŠ¤í‚¬ ì •ì˜
+//------------------------------------------------------------------------------
+USTRUCT(BlueprintType)
+struct FSkillDefinition
+{
+    GENERATED_BODY()
+
+    // === ê¸°ë³¸ ì •ë³´ ===
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Basic")
+    FName SkillID;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Basic")
+    FText DisplayName;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Basic")
+    float BaseDamage = 10.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Basic")
+    float Cooldown = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Basic")
+    float Range = 1000.0f;
+
+    // === Core (í•„ìˆ˜, í•˜ë‚˜ë§Œ) ===
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Core")
+    ESkillCoreType CoreType = ESkillCoreType::Projectile;
+
+    // === Addons (ì„ íƒ, ì—¬ëŸ¬ ê°œ) ===
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Addons")
+    TArray<ESkillAddonType> Addons;
+
+    // === Passive (ìˆ˜ì¹˜) ===
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Passive")
+    FSkillPassiveProperties Passives;
+
+    // === Element (ë¹„ì£¼ì–¼/íš¨ê³¼) ===
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Visual")
+    ESkillElementType ElementType = ESkillElementType::Physical;
+
+    // === VFX ===
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effects")
+    UNiagaraSystem* CastEffect = nullptr;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effects")
+    UNiagaraSystem* HitEffect = nullptr;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Effects")
+    UNiagaraSystem* ExplosionEffect = nullptr;
+
+    // === Audio ===
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+    USoundBase* CastSound = nullptr;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+    USoundBase* HitSound = nullptr;
+};
+
+//------------------------------------------------------------------------------
+// Skill Execution Context - ëŸ°íƒ€ì„ ë°ì´í„°
+//------------------------------------------------------------------------------
+USTRUCT(BlueprintType)
+struct FSkillExecutionContext
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    AActor* Caster = nullptr;
+
+    UPROPERTY()
+    FVector StartLocation = FVector::ZeroVector;
+
+    UPROPERTY()
+    FVector TargetLocation = FVector::ZeroVector;
+
+    UPROPERTY()
+    FVector Direction = FVector::ForwardVector;
+
+    // ëŸ°íƒ€ì„ ì¶”ì 
+    UPROPERTY()
+    TArray<AActor*> HitActors;          // ì´ë¯¸ ë§ì€ ì ë“¤ (ê´€í†µ/ì—°ì‡„ìš©)
+
+    UPROPERTY()
+    int32 CurrentChainCount = 0;
+
+    UPROPERTY()
+    int32 CurrentPierceCount = 0;
+
+    UPROPERTY()
+    float CurrentDamage = 0.0f;
+};
+
+//------------------------------------------------------------------------------
+// DataTable Row - ìŠ¤í‚¬ ë¼ì´ë¸ŒëŸ¬ë¦¬
+//------------------------------------------------------------------------------
+USTRUCT(BlueprintType)
+struct FSkillTableRow : public FTableRowBase
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FSkillDefinition SkillData;
+
+    // UI ì „ìš©
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+    UTexture2D* Icon = nullptr;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+    FText Description;
+
+    // ë“œë¡­/íšë“ ì„¤ì •
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Acquisition")
+    float DropWeight = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Acquisition")
+    bool bIsStartingSkill = false;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Acquisition")
+    int32 UnlockLevel = 1;
+};
+/// </Skill System>
 
 // Bast Weapon Data
 USTRUCT(BlueprintType)
@@ -205,16 +408,16 @@ public:
 
     // Melee-specific stats (3-4 key stats)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee")
-    float AttackRange;          // °ø°İ ¹üÀ§
+    float AttackRange;          // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee")
-    float SwingAngle;           // ÈÖµÎ¸£±â °¢µµ (µµ)
+    float SwingAngle;           // ï¿½ÖµÎ¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½)
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee")
-    int32 ComboCount;           // ¿¬¼Ó °ø°İ È½¼ö
+    int32 ComboCount;           // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ È½ï¿½ï¿½
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Melee")
-    float KnockbackForce;       // ³Ë¹é °­µµ
+    float KnockbackForce;       // ï¿½Ë¹ï¿½ ï¿½ï¿½ï¿½ï¿½
 };
 
 // Ranged Weapon Specific Stats  
@@ -228,16 +431,16 @@ public:
 
     // Ranged-specific stats (3-4 key stats)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ranged")
-    float ProjectileSpeed;      // Åõ»çÃ¼ ¼Óµµ
+    float ProjectileSpeed;      // ï¿½ï¿½ï¿½ï¿½Ã¼ ï¿½Óµï¿½
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ranged")
-    float MaxRange;             // ÃÖ´ë »ç°Å¸®
+    float MaxRange;             // ï¿½Ö´ï¿½ ï¿½ï¿½Å¸ï¿½
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ranged")
-    int32 ProjectileCount;      // µ¿½Ã ¹ß»ç °³¼ö
+    int32 ProjectileCount;      // ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ ï¿½ï¿½ï¿½ï¿½
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ranged")
-    float Accuracy;             // Á¤È®µµ (0.0~1.0)
+    float Accuracy;             // ï¿½ï¿½È®ï¿½ï¿½ (0.0~1.0)
 };
 
 // Magic Weapon Specific Stats
@@ -251,16 +454,16 @@ public:
 
     // Magic-specific stats (3-4 key stats)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic")
-    float CastTime;             // ¿µÃ¢ ½Ã°£
+    float CastTime;             // ï¿½ï¿½Ã¢ ï¿½Ã°ï¿½
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic")
-    float EffectRadius;         // ¸¶¹ı È¿°ú ¹üÀ§
+    float EffectRadius;         // ï¿½ï¿½ï¿½ï¿½ È¿ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic")
-    float Duration;             // Áö¼Ó½Ã°£ (¹öÇÁ/µğ¹öÇÁ¿ë)
+    float Duration;             // ï¿½ï¿½ï¿½Ó½Ã°ï¿½ (ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magic")
-    float ManaCost;             // ¸¶³ª ¼Ò¸ğ·®
+    float ManaCost;             // ï¿½ï¿½ï¿½ï¿½ ï¿½Ò¸ï¿½
 };
 
 //==============================================================================
@@ -572,7 +775,7 @@ struct FCubeData
     bool bCleared = false;
 
     UPROPERTY()
-    int32 CubeType = 0; // ÃßÈÄ È®Àå¿ë
+    int32 CubeType = 0; // ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½ï¿½
 };
 
 UCLASS()

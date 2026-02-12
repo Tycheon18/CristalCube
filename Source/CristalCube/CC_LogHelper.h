@@ -59,6 +59,8 @@ public:
 #define CC_LOG_SPAWNER(Verbosity, Format, ...) \
     UE_LOG(LogTemp, Verbosity, TEXT("[SPAWNER] " Format), ##__VA_ARGS__)
 
+#define CC_LOG_ERROR(Verbosity, Format, ...) \
+    UE_LOG(LogTemp, Verbosity, TEXT("[ERROR] " Format), ##__VA_ARGS__)
 
 // 액터 정보 포함 버전
 #define CC_LOG_PLAYER_ACTOR(Verbosity, Actor, Format, ...) \
