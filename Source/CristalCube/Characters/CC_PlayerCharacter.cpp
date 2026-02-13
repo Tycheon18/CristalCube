@@ -507,6 +507,8 @@ void ACC_PlayerCharacter::CastFireball()
 		return;
 	}
 
+	UE_LOG(LogTemp, Warning, TEXT("[Test] Casting Fireball!"));
+
 	// È­¿°±¸: Åõ»çÃ¼ + Æø¹ß
 	FSkillDefinition Fireball;
 	Fireball.SkillID = FName("Fireball");
@@ -527,7 +529,7 @@ void ACC_PlayerCharacter::CastFireball()
 	FVector TargetLocation = GetActorLocation() + GetActorForwardVector() * 1000.0f;
 	SkillSystem->ExecuteSkill(Fireball, TargetLocation);
 
-	UE_LOG(LogTemp, Warning, TEXT("Fireball cast!"));
+	
 }
 
 void ACC_PlayerCharacter::CastLightningBolt()

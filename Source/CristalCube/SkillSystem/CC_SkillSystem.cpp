@@ -3,6 +3,7 @@
 
 #include "CC_SkillSystem.h"
 #include "../CC_LogHelper.h"
+#include "CC_SkillEffector.h"
 #include "../WeaponSystems/CC_Projectile.h"
 #include "../Characters/CC_Character.h"
 #include "Kismet/GameplayStatics.h"
@@ -120,9 +121,9 @@ void UCC_SkillSystem::ExecuteSkillOnTarget(const FSkillDefinition& Skill, AActor
 
 void UCC_SkillSystem::ExecuteProjectile(const FSkillDefinition& Skill, FSkillExecutionContext& Context)
 {
-	if(!ProjectileClass)
+	if(!SkillEffectorClass)
 	{
-		UE_LOG(LogTemp, Error, TEXT("ExecuteProjectile: ProjectileClass not set!"));
+		UE_LOG(LogTemp, Error, TEXT("ExecuteProjectile: SkillEffector not set!"));
 		return;
 	}
 
@@ -157,25 +158,25 @@ void UCC_SkillSystem::ExecuteProjectile(const FSkillDefinition& Skill, FSkillExe
 		SpawnTransform.SetLocation(SpawnLocation);
 		SpawnTransform.SetRotation(SpawnDirection.ToOrientationQuat());
 
-		ACC_Projectile* Projectile = World->SpawnActor<ACC_Projectile>(
-			ProjectileClass,
+		ACC_SkillEffector* SkillEffectorProjectile = World->SpawnActor<ACC_SkillEffector>(
+			SkillEffectorClass,
 			SpawnTransform
 		);
 
-		if (Projectile)
+		if (SkillEffectorProjectile)
 		{
 			// 3. 투사체 초기화
-			Projectile->SetProjectileOwner(Context.Caster);
-			Projectile->InitializeProjectile(Context.CurrentDamage, Skill.Range);
+			SkillEffectorProjectile->SetSkillOwner(Context.Caster);
+			SkillEffectorProjectile->Initialize(Skill.CoreType, Skill);
 
-			// 4. Penetrate Addon 설정
-			if (Skill.Addons.Contains(ESkillAddonType::Penetrate))
-			{
-				Projectile->bCanPierce = true;
-				Projectile->PierceCount = Skill.Passives.PierceCount;
-			}
+			//// 4. Penetrate Addon 설정
+			//if (Skill.Addons.Contains(ESkillAddonType::Penetrate))
+			//{
+			//	SkillEffectorProjectile->bCanPierce = true;
+			//	SkillEffectorProjectile->PierceCount = Skill.Passives.PierceCount;
+			//}
 
-			Projectile->SetSkillData(this, Skill, Context);
+			//SkillEffectorProjectile->SetSkillData(this, Skill, Context);
 
 			// 5. 디버그 표시
 			if (bShowDebugShapes)
@@ -192,9 +193,8 @@ void UCC_SkillSystem::ExecuteProjectile(const FSkillDefinition& Skill, FSkillExe
 				);
 			}
 
-			UE_LOG(LogTemp, Log, TEXT("Spawned Projectile %d/%d - Damage: %.1f, Pierce: %s"),
-				i + 1, ProjectileCount, Context.CurrentDamage,
-				Projectile->bCanPierce ? TEXT("YES") : TEXT("NO"));
+			UE_LOG(LogTemp, Log, TEXT("Spawned SkillEffect %d/%d - Damage: %.1f"),
+				i + 1, ProjectileCount, Context.CurrentDamage);
 		}
 	}
 	

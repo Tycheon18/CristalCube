@@ -168,6 +168,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Skill System|Setup")
 	TSubclassOf<ACC_Projectile> ProjectileClass;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Skill System|Setup")
+	TSubclassOf <class ACC_SkillEffector> SkillEffectorClass;
+
 	// Àû ÅÂ±×
 	UPROPERTY(EditDefaultsOnly, Category = "Skill System|Setup")
 	FName EnemyTag = TEXT("Enemy");

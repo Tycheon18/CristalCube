@@ -321,6 +321,27 @@ struct FSkillTableRow : public FTableRowBase
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Acquisition")
     int32 UnlockLevel = 1;
 };
+
+///==============================================================================
+/// 속성별 색상 정보
+/// ==============================================================================
+
+USTRUCT(BlueprintType)
+struct FElementColorData
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FLinearColor PrimaryColor = FLinearColor::White;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FLinearColor SecondaryColor = FLinearColor::White;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float EmissiveStrength = 1.0f;
+};
+
+
 /// </Skill System>
 
 // Bast Weapon Data

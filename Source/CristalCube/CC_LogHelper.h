@@ -53,6 +53,9 @@ public:
 #define CC_LOG_WEAPON(Verbosity, Format, ...) \
     UE_LOG(LogTemp, Verbosity, TEXT("[WEAPON] " Format), ##__VA_ARGS__)
 
+#define CC_LOG_SKILL(Verbosity, Format, ...) \
+    UE_LOG(LogTemp, Verbosity, TEXT("[SKILL] " Format), ##__VA_ARGS__)
+
 #define CC_LOG_STATS(Verbosity, Format, ...) \
     UE_LOG(LogTemp, Verbosity, TEXT("[STATS] " Format), ##__VA_ARGS__)
 
@@ -78,6 +81,9 @@ public:
 #define CC_LOG_WEAPON_ACTOR(Verbosity, Actor, Format, ...) \
     UE_LOG(LogTemp, Verbosity, TEXT("[WEAPON][%s] " Format), CC_ACTOR_NAME(Actor), ##__VA_ARGS__)
 
+#define CC_LOG_SKILL_ACTOR(Verbosity, Actor, Format, ...) \
+    UE_LOG(LogTemp, Verbosity, TEXT("[SKILL][%s] " Format), CC_ACTOR_NAME(Actor), ##__VA_ARGS__)
+
 #define CC_LOG_SPAWNER_ACTOR(Verbosity, Actor, Format, ...) \
     UE_LOG(LogTemp, Verbosity, TEXT("[SPAWNER][%s] " Format), CC_ACTOR_NAME(Actor), ##__VA_ARGS__)
 
@@ -99,5 +105,6 @@ public:
 // 화면 출력 편의 매크로들
 #define CC_SCREEN_ENEMY(Duration, Format, ...) CC_SCREEN_LOG(TEXT("ENEMY"), Duration, Format, ##__VA_ARGS__)
 #define CC_SCREEN_COMBAT(Duration, Format, ...) CC_SCREEN_LOG(TEXT("COMBAT"), Duration, Format, ##__VA_ARGS__)
+#define CC_SCREEN_SKILL(Duration, Format, ...) CC_SCREEN_LOG(TEXT("SKILL"), Duration, Format, ##__VA_ARGS__)
 #define CC_SCREEN_AI(Duration, Format, ...) CC_SCREEN_LOG(TEXT("AI"), Duration, Format, ##__VA_ARGS__)
 #define CC_SCREEN_SPAWNER(Duration, Format, ...) CC_SCREEN_LOG(TEXT("SPAWNER"), Duration, Format, ##__VA_ARGS__)
