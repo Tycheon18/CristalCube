@@ -13,6 +13,7 @@ class UCC_SkillUpgradeDetailWidget;
 class UCC_AddonBadgeWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRosterEntryExpandRequested, class UCC_SkillRosterEntryWidget*, Entry);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnRosterSlotDropped, int32, SourceSlotIndex, int32, TargetSlotIndex);
 
 /**
  * Inventory 리스트 한 줄 = "카드"(아이콘/이름/화살표/Addon 아이콘 요약) + 그 아래
@@ -32,6 +33,15 @@ public:
 
 	virtual void NativeConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+protected:
+
+	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+	virtual FReply NativeOnMouseButtonUp(const FGeometry & InGeometry, const FPointerEvent & InMouseEvent) override;
+	virtual void NativeOnDragDetected(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent, class UDragDropOperation*& OutOperation) override;
+	virtual bool NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent, class UDragDropOperation* InOperation) override;
+
+public:
 
 	/** 이 슬롯의 스킬 데이터로 카드를 채움. */
 	UFUNCTION(BlueprintCallable, Category = "Skill Roster")
@@ -62,8 +72,12 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Skill Roster")
 	FOnRosterEntryExpandRequested OnExpandRequested;
 
+	/** Ctrl-드래그로 슬롯이 재배치되었을 때 부모(Inventory)에게 통지 — 실제 SwapSlots 호출은 부모 담당 */
+	UPROPERTY(BlueprintAssignable, Category = "Skill Roster")
+	FOnRosterSlotDropped OnSlotDropRequested;
+
 protected:
-	UPROPERTY(meta = (BindWidget)) class UButton* CardHeaderButton;
+	//UPROPERTY(meta = (BindWidget)) class UButton* CardHeaderButton;
 	UPROPERTY(meta = (BindWidget)) class UImage* SkillIcon;
 	UPROPERTY(meta = (BindWidget)) class UTextBlock* SkillName;
 	UPROPERTY(meta = (BindWidget)) UImage* ExpandChevron;
@@ -73,6 +87,9 @@ protected:
 
 	/** 실제 "서랍" — WBP_SkillUpgradeDetail 인스턴스를 이 이름으로 배치 */
 	UPROPERTY(meta = (BindWidget)) UCC_SkillUpgradeDetailWidget* DrawerPanel;
+
+	/** 빈 슬롯(미장착)일 때만 보이는 플레이스홀더 — 카드는 펼쳐지지 않고 드롭 타겟으로만 동작 */
+	UPROPERTY(meta = (BindWidgetOptional)) class UWidget* EmptySlotOverlay;
 
 	/** 접힘 상태 Addon 아이콘 뱃지 클래스 — CC_SkillCardWidget과 동일한 뱃지 재사용 가능 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Skill Roster")
@@ -90,6 +107,8 @@ private:
 
 	int32 SlotIndex = INDEX_NONE;
 	bool bIsExpanded = false;
+
+	bool bPendingClick = false;
 
 	/** true인 동안 DrawerPanel의 오퍼시티/스케일만 보간 — 레이아웃 크기는 안 건드림. */
 	bool bRevealAnimating = false;

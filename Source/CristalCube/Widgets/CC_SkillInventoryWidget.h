@@ -37,6 +37,9 @@ protected:
     UFUNCTION()
     void HandleEntryExpandRequested(UCC_SkillRosterEntryWidget* Entry);
 
+    UFUNCTION()
+    void HandleSlotDropRequested(int32 SourceSlotIndex, int32 TargetSlotIndex);
+
 private:
     static constexpr int32 NumEquipSlots = 6;
 

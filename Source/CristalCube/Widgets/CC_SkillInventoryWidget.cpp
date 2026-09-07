@@ -23,6 +23,7 @@ void UCC_SkillInventoryWidget::NativeConstruct()
     }
 
     RefreshInventory();
+
 }
 
 void UCC_SkillInventoryWidget::NativeDestruct()
@@ -44,28 +45,40 @@ void UCC_SkillInventoryWidget::RefreshInventory()
 {
     if (!RosterContainer || !RosterEntryWidgetClass || !BoundPlayerState) return;
 
-    if (GetWorld())
+    if (RosterEntries.Num() != NumEquipSlots)
     {
-        GetWorld()->GetTimerManager().ClearTimer(TransitionTimerHandle);
+        // 최초 1회만 실제로 위젯을 만들고 붙임 — 이후로는 절대 파괴/재생성 안 함
+        // (SkillsPanel의 CC_SkillSlotWidget과 동일하게 "영구 위젯 + SetSkillData로 내용만 갱신")
+        if (GetWorld())
+        {
+            GetWorld()->GetTimerManager().ClearTimer(TransitionTimerHandle);
+        }
+
+        RosterContainer->ClearChildren();
+        RosterEntries.Reset();
+        ExpandedEntry = nullptr;
+
+        for (int32 SlotIndex = 0; SlotIndex < NumEquipSlots; ++SlotIndex)
+        {
+            UCC_SkillRosterEntryWidget* Entry = CreateWidget<UCC_SkillRosterEntryWidget>(this, RosterEntryWidgetClass);
+            if (!Entry) continue;
+
+            Entry->OnExpandRequested.AddDynamic(this, &UCC_SkillInventoryWidget::HandleEntryExpandRequested);
+            Entry->OnSlotDropRequested.AddDynamic(this, &UCC_SkillInventoryWidget::HandleSlotDropRequested);
+
+            RosterContainer->AddChild(Entry);
+            RosterEntries.Add(Entry);
+        }
     }
 
-    RosterContainer->ClearChildren();
-    RosterEntries.Reset();
-    ExpandedEntry = nullptr;
-
-    for (int32 SlotIndex = 0; SlotIndex < NumEquipSlots; ++SlotIndex)
+    // 이후로는(스왑 등으로 다시 호출될 때마다) 기존 위젯 인스턴스에 데이터만 다시 채움
+    for (int32 SlotIndex = 0; SlotIndex < RosterEntries.Num(); ++SlotIndex)
     {
-        UCC_SkillBase* Skill = BoundPlayerState->GetSkillAtSlot(SlotIndex);
-        if (!Skill) continue;
-
-        UCC_SkillRosterEntryWidget* Entry = CreateWidget<UCC_SkillRosterEntryWidget>(this, RosterEntryWidgetClass);
-        if (!Entry) continue;
-
-        Entry->SetSkillData(SlotIndex, Skill, BoundPlayerState);
-        Entry->OnExpandRequested.AddDynamic(this, &UCC_SkillInventoryWidget::HandleEntryExpandRequested);
-
-        RosterContainer->AddChild(Entry);
-        RosterEntries.Add(Entry);
+        if (UCC_SkillRosterEntryWidget* Entry = RosterEntries[SlotIndex])
+        {
+            UCC_SkillBase* Skill = BoundPlayerState->GetSkillAtSlot(SlotIndex);
+            Entry->SetSkillData(SlotIndex, Skill, BoundPlayerState);
+        }
     }
 }
 
@@ -112,6 +125,12 @@ void UCC_SkillInventoryWidget::HandleEntryExpandRequested(UCC_SkillRosterEntryWi
         });
     GetWorld()->GetTimerManager().SetTimer(TransitionTimerHandle, Del, Entry->GetDrawerAnimDuration(), false);
 
+}
+
+void UCC_SkillInventoryWidget::HandleSlotDropRequested(int32 SourceSlotIndex, int32 TargetSlotIndex)
+{
+    if (!BoundPlayerState) return;
+    BoundPlayerState->SwapSlots(SourceSlotIndex, TargetSlotIndex);
 }
 
 void UCC_SkillInventoryWidget::RevealSiblings()
